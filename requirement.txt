@@ -9,3 +9,4 @@ peft==0.4.0
 torchtyping==0.1.4
 wandb
 jsonlines
+datasets
