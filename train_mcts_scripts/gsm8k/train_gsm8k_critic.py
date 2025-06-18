@@ -37,7 +37,7 @@ config = {
         "tracker": "wandb",
         "entity_name": "ula_elfray",
         "group_name": "gsm8k_critic",
-        "tags": "gsm8k_critic",
+        "tags": ["gsm8k_critic"],
         "logging_dir": "logs/",
         "onpolicy_per_problem_max_size": 1000,
     },
