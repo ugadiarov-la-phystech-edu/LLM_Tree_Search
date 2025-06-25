@@ -164,23 +164,24 @@ if __name__ == "__main__":
     parser.add_argument("--env_name", type=str, default="gsm8k")
     parser.add_argument("--test", type=str2bool, default=True)
     parser.add_argument("--is_few_shot", type=str2bool, default=False)
+    parser.add_argument("--rollout_method", type=str, default="mcts.rap")
+    parser.add_argument("--tree_max_length", type=int, default=8)
+    parser.add_argument("--tree_max_actions", type=int, default=6)
     config = parser.parse_args()
 
-    TREE_MAX_LENGTH = 4
-    TREE_MAX_ACTIONS = 20
     # RANDOM_SEEDS = [x * 10009 + 7 for x in [0, 1, 2]]
     args_list = [
         {
             "temperature": 1.0,
-            "max_length": TREE_MAX_LENGTH,
-            "max_action": TREE_MAX_ACTIONS,
+            "max_length": config.tree_max_length,
+            "max_action": config.tree_max_actions,
             "pb_c_init": 3,
             "num_simulations": 5,
             "k_maj": 10,
             "num_mcts_aggregation": 1,
             "max_simulation": None,
             "max_token": 51200,
-            "rollout_method": "mcts.rap",
+            "rollout_method": config.rollout_method,
             "select_by_prior": False,
             "reset_total_tree": False,
             "mcts_sample": False,

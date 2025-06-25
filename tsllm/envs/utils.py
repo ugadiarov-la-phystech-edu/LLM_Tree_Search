@@ -6,6 +6,7 @@ from transformers import PreTrainedTokenizer
 from pathlib import Path
 from torch.utils.data import Dataset
 import jsonlines
+from tqdm import tqdm
 
 
 def build_sft_data_component(
@@ -95,7 +96,7 @@ def build_critic_data_component(
 
     predata = load_jsonl(jsonl_path)
     traj_dict_list = []
-    for idx, d in enumerate(predata):
+    for idx, d in enumerate(tqdm(predata)):
         question = d["question"]
         if question not in q2idx_dict.keys():
             continue

@@ -15,4 +15,7 @@ torchrun --nproc_per_node=8 --master-port 29503 ../../tsllm/offline_rl/test_sft_
     --tokenizer_path $CRITIC_PATH \
     --save_dir $1/pi_sftep3_v_sftep1 \
     --env_name gsm8k \
+    --rollout_method "mcts.beam_search" \
+    --tree_max_length 8 \
+    --tree_max_actions 6 \
     --test True
