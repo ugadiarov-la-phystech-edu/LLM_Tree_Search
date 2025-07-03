@@ -1,3 +1,4 @@
+import glob
 import json
 from argparse import ArgumentParser
 
@@ -16,9 +17,10 @@ if __name__ == "__main__":
     config = parser.parse_args()
 
     all_data = []
-    for i in range(8):
+    file_paths = glob.glob(f"{config.input_dir}/rlhf/args0/cot_sc/*.jsonl")
+    for file_path in file_paths:
         # merge all data, you can modify the path to your save path
-        all_data.extend(load_jsonl(f"{config.input_dir}/rlhf/args0/cot_sc/{i}.jsonl"))
+        all_data.extend(load_jsonl(file_path))
 
     d = []
     for data_dict in all_data:
