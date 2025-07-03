@@ -82,6 +82,7 @@ if __name__ == "__main__":
     parser.add_argument("--env_name", type=str, required=True)
     parser.add_argument("--dataset_name", type=str, default="Dahoas/synthetic-instruct-gptj-pairwise")
     parser.add_argument("--train", action='store_true', default=False)
+    parser.add_argument("--k_maj", type=int, default=5)
     
     config = parser.parse_args()
 
@@ -91,7 +92,7 @@ if __name__ == "__main__":
             "max_length": 64,
             "pb_c_init": 3,
             "num_simulations": 10,
-            "k_maj": 5,
+            "k_maj": config.k_maj,
             "num_mcts_aggregation": 1,
             "max_simulation": None,
             "max_token": 5000,
