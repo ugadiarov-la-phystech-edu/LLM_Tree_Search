@@ -194,7 +194,7 @@ if __name__ == "__main__":
         return judge_results, list(zip(texts, reward_list))
 
     def llm_forward_fn():
-        from llm.text_generation import llm_forward_ct2
+        from tsllm.llm.text_generation import llm_forward_ct2
         llm_gen_v2 = partial(llm_forward_ct2, ct2_generator, tokenizer)
         return llm_gen_v2
     
