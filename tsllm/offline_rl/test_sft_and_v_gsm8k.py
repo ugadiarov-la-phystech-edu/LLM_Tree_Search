@@ -452,7 +452,7 @@ if __name__ == "__main__":
             if local_rank == 0 and not cot_save_path.exists():
                 cot_save_path.mkdir(parents=True)
             dist.barrier()
-            cot_writer = jsonlines.open(cot_save_path / f"{local_rank}.jsonl", "a")
+            cot_writer = jsonlines.open(cot_save_path / f"{local_rank}.jsonl", "a", flush=True)
         else:
             cot_writer = None
         if TEST_COT_SC:
@@ -461,7 +461,7 @@ if __name__ == "__main__":
                 cot_sc_save_path.mkdir(parents=True)
             dist.barrier()
             cot_sc_writer = jsonlines.open(
-                cot_sc_save_path / f"{local_rank}.jsonl", "a"
+                cot_sc_save_path / f"{local_rank}.jsonl", "a", flush=True
             )
         else:
             cot_sc_writer = None
@@ -472,7 +472,7 @@ if __name__ == "__main__":
                 mcts_no_term_save_path.mkdir(parents=True)
             dist.barrier()
             mcts_no_term_writer = jsonlines.open(
-                mcts_no_term_save_path / f"{local_rank}.jsonl", "a"
+                mcts_no_term_save_path / f"{local_rank}.jsonl", "a", flush=True
             )
         else:
             mcts_no_term_writer = None
@@ -483,7 +483,7 @@ if __name__ == "__main__":
                 mcts_w_term_save_path.mkdir(parents=True)
             dist.barrier()
             mcts_w_term_writer = jsonlines.open(
-                mcts_w_term_save_path / f"{local_rank}.jsonl", "a"
+                mcts_w_term_save_path / f"{local_rank}.jsonl", "a", flush=True
             )
         else:
             mcts_w_term_writer = None
