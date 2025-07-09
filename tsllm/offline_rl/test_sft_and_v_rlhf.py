@@ -49,6 +49,7 @@ class SearchArgs:
     reset_total_tree: bool = False # intra-tree
     clear_total_tree: bool = False # inter-tree
     mcts_sample: bool = False # whether to use sample in mcts-alpha
+    final_action_strategy: str = None
 
     max_simulation: Optional[int] = None # hyperparameter for mcts-alpha
     max_token: Optional[int] = None # hyperparameter for mct-rollout
@@ -83,6 +84,8 @@ if __name__ == "__main__":
     parser.add_argument("--dataset_name", type=str, default="Dahoas/synthetic-instruct-gptj-pairwise")
     parser.add_argument("--train", action='store_true', default=False)
     parser.add_argument("--k_maj", type=int, default=5)
+    parser.add_argument("--final_action_strategy", type=str, choices=['visits', 'expected_value', 'max_value'],
+                        default="visits")
     
     config = parser.parse_args()
 
@@ -103,7 +106,8 @@ if __name__ == "__main__":
             "max_new_tokens": 64,
             "mcts_sample": False,
             "prune_ratio": 0.9,
-            "prune_value": None
+            "prune_value": None,
+            "final_action_strategy": config.final_action_strategy,
         }
     ]
 
@@ -224,6 +228,7 @@ if __name__ == "__main__":
                 "root_dirichlet_alpha": 0.3,
                 "root_noise_weight": 0.25,
                 "no_terminal_reward": no_terminal_reward,
+                "final_action_strategy": args.final_action_strategy,
             }
         )
 

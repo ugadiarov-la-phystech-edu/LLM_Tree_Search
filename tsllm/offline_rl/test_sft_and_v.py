@@ -131,6 +131,7 @@ class SearchArgs:
     reset_total_tree: bool = False
     mcts_sample: bool = False
     clear_tree: bool = False
+    final_action_strategy: str = None
 
     # MCTS-Rollout Hyperparameters
     max_simulation: Optional[int] = None
@@ -167,6 +168,8 @@ if __name__ == "__main__":
     parser.add_argument("--rollout_method", type=str, default="mcts.rap")
     parser.add_argument("--tree_max_length", type=int, default=8)
     parser.add_argument("--tree_max_actions", type=int, default=6)
+    parser.add_argument("--final_action_strategy", type=str, choices=['visits', 'expected_value', 'max_value'],
+                        default="visits")
     config = parser.parse_args()
 
     # RANDOM_SEEDS = [x * 10009 + 7 for x in [0, 1, 2]]
@@ -189,6 +192,7 @@ if __name__ == "__main__":
             "prune_ratio": 0.7,
             "prune_value": None,
             "seed": 7,
+            "final_action_strategy": config.final_action_strategy,
         },
     ]
 
@@ -368,6 +372,7 @@ if __name__ == "__main__":
             "root_dirichlet_alpha": 0.3,
             "root_noise_weight": 0.25,
             "no_terminal_reward": no_terminal_reward,
+            "final_action_strategy": args.final_action_strategy,
         }
         if tree_path and tree_path.exists():
             mcts = MCTS.from_json(cfg, tree_path, reset_visit_info=True)

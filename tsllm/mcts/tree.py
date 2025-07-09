@@ -34,6 +34,7 @@ class Node(object):
         self.prior_p_ori = prior_p
 
         self._initial_value = initial_value
+        self.max_value = initial_value
         self._terminated = False
 
     def __lt__(self, other):
@@ -58,7 +59,7 @@ class Node(object):
             return self._initial_value
         return self._value_sum / self._visit_count
 
-    def update(self, value: float) -> None:
+    def update(self, value: float, max_value: float) -> None:
         """
         Overview:
             Updata the current node information, such as visit_count and value_sum.
@@ -67,8 +68,9 @@ class Node(object):
         """
         self._visit_count += 1
         self._value_sum += value
+        self.max_value = max(self.max_value, max_value)
 
-    def update_recursive(self, leaf_value: float, mcts_mode: str) -> None:
+    def update_recursive(self, leaf_value: float, mcts_mode: str, max_value: float) -> None:
         """
         Overview:
             Update node information recursively.
@@ -76,15 +78,15 @@ class Node(object):
             - leaf_value (:obj:`Int`): The value of the node.
         """
         if mcts_mode == "self_play_mode":
-            self.update(leaf_value)
+            self.update(leaf_value, max_value)
             if self.is_root():
                 return
-            self._parent.update_recursive(-leaf_value, mcts_mode)
+            self._parent.update_recursive(-leaf_value, mcts_mode, max_value)
         if mcts_mode == "play_with_bot_mode":
-            self.update(leaf_value)
+            self.update(leaf_value, max_value)
             if self.is_root():
                 return
-            self._parent.update_recursive(leaf_value, mcts_mode)
+            self._parent.update_recursive(leaf_value, mcts_mode, max_value)
 
     def is_leaf(self) -> Dict:
         """
@@ -229,6 +231,7 @@ class MCTS(object):
         self._num_generated_token = 0
 
         self._prune_node_under_v = self._cfg.get("prune_node_under_v", None)
+        self._final_action_strategy = self._cfg["final_action_strategy"]
 
     @property
     def num_generated_token(self):
@@ -239,6 +242,78 @@ class MCTS(object):
         node.clear()
         for child in node.children.values():
             self.clear_node(child)
+
+    def get_final_action_by_visits(self, temperature, sample, root, simulate_env):
+        action_visits = []
+        for action_dict in simulate_env.legal_actions:
+            action = action_dict["action"]
+            if action in root.children:
+                action_visits.append((action, root.children[action].visit_count))
+            else:
+                action_visits.append((action, 0))
+
+        actions, visits = zip(*action_visits)
+        action_probs = nn.functional.softmax(
+            1.0
+            / temperature
+            * np.log(torch.as_tensor(visits, dtype=torch.float32) + 1e-10),
+            dim=0,
+        ).numpy()
+        if sample:
+            action = np.random.choice(actions, p=action_probs)
+            self.reset_prior(root)
+        else:
+            action = actions[np.argmax(action_probs)]
+
+        return action, action_probs
+
+    def get_final_action_by_expected_value(self, temperature, sample, root, simulate_env):
+        action_values = []
+        for action_dict in simulate_env.legal_actions:
+            action = action_dict["action"]
+            if action in root.children:
+                action_values.append((action, root.children[action].value))
+            else:
+                action_values.append((action, -math.inf))
+
+        actions, values = zip(*action_values)
+        action_probs = nn.functional.softmax(
+            1.0
+            / temperature
+            * torch.as_tensor(values, dtype=torch.float32),
+            dim=0,
+        ).numpy()
+        if sample:
+            action = np.random.choice(actions, p=action_probs)
+            self.reset_prior(root)
+        else:
+            action = actions[np.argmax(action_probs)]
+
+        return action, action_probs
+
+    def get_final_action_by_max_value(self, temperature, sample, root, simulate_env):
+        action_values = []
+        for action_dict in simulate_env.legal_actions:
+            action = action_dict["action"]
+            if action in root.children:
+                action_values.append((action, root.children[action].max_value))
+            else:
+                action_values.append((action, -math.inf))
+
+        actions, values = zip(*action_values)
+        action_probs = nn.functional.softmax(
+            1.0
+            / temperature
+            * torch.as_tensor(values, dtype=torch.float32),
+            dim=0,
+        ).numpy()
+        if sample:
+            action = np.random.choice(actions, p=action_probs)
+            self.reset_prior(root)
+        else:
+            action = actions[np.argmax(action_probs)]
+
+        return action, action_probs
 
     def get_next_action(
         self,
@@ -286,26 +361,14 @@ class MCTS(object):
         # print('value= {}'.format([(k, v.value) for k,v in root.children.items()]))
         # print('visit_count= {}'.format([(k, v.visit_count) for k,v in root.children.items()]))
 
-        action_visits = []
-        for action_dict in simulate_env.legal_actions:
-            action = action_dict["action"]
-            if action in root.children:
-                action_visits.append((action, root.children[action].visit_count))
-            else:
-                action_visits.append((action, 0))
-
-        actions, visits = zip(*action_visits)
-        action_probs = nn.functional.softmax(
-            1.0
-            / temperature
-            * np.log(torch.as_tensor(visits, dtype=torch.float32) + 1e-10),
-            dim=0,
-        ).numpy()
-        if sample:
-            action = np.random.choice(actions, p=action_probs)
-            self.reset_prior(root)
+        if self._final_action_strategy == "visits":
+            action, action_probs = self.get_final_action_by_visits(temperature, sample, root, simulate_env)
+        elif self._final_action_strategy == "expected_value":
+            action, action_probs = self.get_final_action_by_expected_value(temperature, sample, root, simulate_env)
+        elif self._final_action_strategy == "max_value":
+            action, action_probs = self.get_final_action_by_max_value(temperature, sample, root, simulate_env)
         else:
-            action = actions[np.argmax(action_probs)]
+            assert False, f'Unexpected final action strategy: {self._final_action_strategy}'
 
         self.root = root
         if return_tree:
@@ -456,7 +519,7 @@ class MCTS(object):
                     else:
                         leaf_value = policy_forward_fn(env_copy.get_state()).item()
 
-            node.update_recursive(leaf_value, env_copy.mcts_mode)
+            node.update_recursive(leaf_value, env_copy.mcts_mode, node.max_value)
 
             traj_data = {
                 "path_idx": i_path,
@@ -731,7 +794,7 @@ class MCTS(object):
 
         # Update value and visit count of nodes in this traversal.
         if simulate_env.mcts_mode == "play_with_bot_mode":
-            node.update_recursive(leaf_value, simulate_env.mcts_mode)
+            node.update_recursive(leaf_value, simulate_env.mcts_mode, node.max_value)
 
         elif simulate_env.mcts_mode == "self_play_mode":
             # NOTE: e.g.
@@ -742,7 +805,7 @@ class MCTS(object):
             # leaf_value is calculated from the perspective of player 1, leaf_value = value_func(s3),
             # but node.value should be the value of E[q(s2, action)], i.e. calculated from the perspective of player 2.
             # thus we add the negative when call update_recursive().
-            node.update_recursive(-leaf_value, simulate_env.mcts_mode)
+            node.update_recursive(-leaf_value, simulate_env.mcts_mode, node.max_value)
 
     def _select_child(
         self, node: LanguageNode, simulate_env: Type[CoTEnv]
