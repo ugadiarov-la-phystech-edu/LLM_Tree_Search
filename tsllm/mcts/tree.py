@@ -477,10 +477,20 @@ class MCTS(object):
             self._expand_leaf_node(root, simulate_env, policy_forward_fn)
 
         possible_actions = list(self.root.children)
+        if len(possible_actions) == 1:
+            if return_tree:
+                return possible_actions[0], np.ones((1,), dtype=np.float32), root
+            else:
+                return possible_actions[0], np.ones((1,), dtype=np.float32)
+
         n_selected_action = self._sequential_halving_start_nodes
         gumbel_logits = np.random.gumbel(size=len(possible_actions))
         gumbel_logits += np.array([child.prior_log_p for child in self.root.children.values()])
-        selected_child_ids = np.argpartition(gumbel_logits, len(possible_actions) - n_selected_action)[-n_selected_action:]
+
+        if len(possible_actions) <= n_selected_action:
+            selected_child_ids = np.arange(len(possible_actions))
+        else:
+            selected_child_ids = np.argpartition(gumbel_logits, len(possible_actions) - n_selected_action)[-n_selected_action:]
 
         for n in range(self._num_simulations):
             simulate_env_copy = simulate_env.copy()
@@ -488,12 +498,13 @@ class MCTS(object):
             self._simulate(root, simulate_env_copy, policy_forward_fn, first_action=possible_actions[selected_child_ids[n % selected_child_ids.shape[0]]])
 
         while True:
-            estimated_q = self.root.get_estimated_q_tensor()[0]
-            updated_gumbels = gumbel_logits + self.sigma_q(self.root, estimated_q)
-            selected_gumbels = updated_gumbels[selected_child_ids]
-
             n_selected_action //= 2
-            selected_child_ids = selected_child_ids[np.argpartition(selected_gumbels, selected_gumbels.shape[0] - n_selected_action)[-n_selected_action:]]
+            if len(possible_actions) > n_selected_action:
+                estimated_q = self.root.get_estimated_q_tensor()[0]
+                updated_gumbels = gumbel_logits + self.sigma_q(self.root, estimated_q)
+                selected_gumbels = updated_gumbels[selected_child_ids]
+                selected_child_ids = selected_child_ids[np.argpartition(selected_gumbels, selected_gumbels.shape[0] - n_selected_action)[-n_selected_action:]]
+
             if n_selected_action == 1:
                 break
 
