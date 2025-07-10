@@ -9,7 +9,7 @@ from tsllm.distributed.utils import (
     gather_scalar,
 )
 from tsllm.envs import get_env_datasets, get_default_query_str_builder
-from tsllm.inference.trajectory_collector import _mcts_rollout_v1
+from tsllm.inference.trajectory_collector import _mcts_rollout_v1, _mcts_gumbel
 from tsllm.inference.value import value_fn
 from tsllm.inference.lm_self_value import tot_value_fn
 from tsllm.llm.ct2_utils import load_ct2_model
@@ -131,7 +131,9 @@ class SearchArgs:
     reset_total_tree: bool = False
     mcts_sample: bool = False
     clear_tree: bool = False
+    clear_subtrees: bool = False
     final_action_strategy: str = None
+    sequential_halving_start_nodes: int = 10
 
     # MCTS-Rollout Hyperparameters
     max_simulation: Optional[int] = None
@@ -170,6 +172,8 @@ if __name__ == "__main__":
     parser.add_argument("--tree_max_actions", type=int, default=6)
     parser.add_argument("--final_action_strategy", type=str, choices=['visits', 'expected_value', 'max_value'],
                         default="visits")
+    parser.add_argument("--sequential_halving_start_nodes", type=int, default=5)
+    parser.add_argument("--clear_subtrees", action='store_true', default=False)
     config = parser.parse_args()
 
     # RANDOM_SEEDS = [x * 10009 + 7 for x in [0, 1, 2]]
@@ -193,6 +197,8 @@ if __name__ == "__main__":
             "prune_value": None,
             "seed": 7,
             "final_action_strategy": config.final_action_strategy,
+            "sequential_halving_start_nodes": config.sequential_halving_start_nodes,
+            "clear_subtrees": config.clear_subtrees,
         },
     ]
 
@@ -373,6 +379,7 @@ if __name__ == "__main__":
             "root_noise_weight": 0.25,
             "no_terminal_reward": no_terminal_reward,
             "final_action_strategy": args.final_action_strategy,
+            "sequential_halving_start_nodes": args.sequential_halving_start_nodes,
         }
         if tree_path and tree_path.exists():
             mcts = MCTS.from_json(cfg, tree_path, reset_visit_info=True)
@@ -398,6 +405,29 @@ if __name__ == "__main__":
                 args.reset_total_tree,
                 sample=args.mcts_sample,
                 clear_total_tree=args.clear_tree,
+            )
+            prompt = prompt_fn(problem["question"])
+            texts = [o["text"] for o in output_list]
+            if len(texts) > 0:
+                value_list = policy_forward_value(
+                    # add a .strip() in case mistakes happens when copy this line to other place
+                    [prompt + txt.strip() + task_module.SEP for txt in texts]
+                ).tolist()
+            else:
+                value_list = []
+            for o, v in zip(output_list, value_list):
+                o["value"] = v
+
+        elif args.rollout_method == "mcts.gumbel":
+            output_list = _mcts_gumbel(
+                mcts,
+                env,
+                policy_forward_value,
+                args.num_mcts_aggregation,
+                args.reset_total_tree,
+                sample=args.mcts_sample,
+                clear_total_tree=args.clear_tree,
+                clear_subtrees=args.clear_subtrees,
             )
             prompt = prompt_fn(problem["question"])
             texts = [o["text"] for o in output_list]
