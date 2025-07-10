@@ -92,3 +92,69 @@ def _mcts_rollout_v2(
     # num_generated_token = mcts.num_generated_token
 
     return output_list  # texts, values, num_generated_token
+
+
+def _mcts_gumbel(
+        mcts: MCTS,
+        env: CoTEnv,
+        policy_forward_value,
+        n_rollout: int,
+        reset_total_tree: bool,
+        sample: bool,
+        clear_total_tree: bool,
+        clear_subtrees: bool = False,
+):
+    """MCTS.GET_NEXT_ACTION"""
+    output_episodes = []
+    num_generated_token = 0
+    env.reset(True)
+    mcts.root = None
+    done = False
+    for i in range(n_rollout):
+        while not done:
+            action, _, current_node = mcts.get_next_action_gumbel(
+                env,
+                policy_forward_fn=policy_forward_value,
+                sample=sample,
+                return_tree=True,
+            )
+            mcts.root = current_node.children[action]
+            next_state, reward, terminated, truncated, info = env.step(
+                action, update_legal_action=clear_subtrees or len(mcts.root.children) == 0
+            )
+            done = terminated or truncated
+
+            if not done:
+                if clear_subtrees:
+                    mcts.root = None
+                elif len(mcts.root.children) > 0:
+                    env._legal_actions = [
+                        {"action": a, "prob": None} for a in mcts.root.children.keys()
+                    ]
+
+        num_generated_token = mcts.num_generated_token
+
+        traj_data = {
+            "path_idx": i,
+            "text": env.answer.strip(),  # drop the last "\n"
+            "value": mcts.root.value,
+            "num_generated_token": num_generated_token,
+        }
+        output_episodes.append(traj_data)
+
+        assert not (reset_total_tree and clear_total_tree)  # cannot be both true
+        if reset_total_tree:
+            if i < n_rollout - 1:
+                mcts.root = None
+                env.reset(update_legal_action=True)
+        else:
+            mcts.root = get_root(current_node)
+            if clear_total_tree:
+                mcts.clear_node(mcts.root)
+            env.reset(update_legal_action=False)
+            env._legal_actions = [
+                {"action": a, "prob": None} for a in mcts.root.children.keys()
+            ]
+        done = False
+
+    return output_episodes

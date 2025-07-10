@@ -9,7 +9,7 @@ import torch
 from functools import partial
 from tsllm.envs import get_env_datasets, get_default_query_str_builder
 from tsllm.envs.rlhf.prompt import PROBLEM_FORMAT_STR
-from tsllm.inference.trajectory_collector import _mcts_rollout_v1, _mcts_rollout_v2
+from tsllm.inference.trajectory_collector import _mcts_rollout_v1, _mcts_rollout_v2, _mcts_gumbel
 from tsllm.inference.value import value_fn
 import json
 from tsllm.llm.ct2_utils import load_ct2_model
@@ -36,6 +36,7 @@ class SearchArgs:
     temperature: float = 1.0 # sampling temperature
     num_mcts_aggregation: int = 5 # how many trajectories to sample
     max_length: int = 8 # max depth of tree
+    max_actions: int = 6
     pb_c_init: float = 10 # for mcts exploration
 
     # init_critic_value: bool = True # whether we use value function to initialize the tree node value
@@ -48,8 +49,10 @@ class SearchArgs:
     # aggregation parameters
     reset_total_tree: bool = False # intra-tree
     clear_total_tree: bool = False # inter-tree
+    clear_subtrees: bool = False
     mcts_sample: bool = False # whether to use sample in mcts-alpha
-    final_action_strategy: str = None
+    final_action_strategy: str = "visits"
+    sequential_halving_start_nodes: int = 10
 
     max_simulation: Optional[int] = None # hyperparameter for mcts-alpha
     max_token: Optional[int] = None # hyperparameter for mct-rollout
@@ -84,15 +87,21 @@ if __name__ == "__main__":
     parser.add_argument("--dataset_name", type=str, default="Dahoas/synthetic-instruct-gptj-pairwise")
     parser.add_argument("--train", action='store_true', default=False)
     parser.add_argument("--k_maj", type=int, default=5)
+    parser.add_argument("--tree_max_length", type=int, default=64)
+    parser.add_argument("--tree_max_actions", type=int, default=50)
+    parser.add_argument("--sequential_halving_start_nodes", type=int, default=10)
     parser.add_argument("--final_action_strategy", type=str, choices=['visits', 'expected_value', 'max_value'],
                         default="visits")
+    parser.add_argument("--clear_subtrees", action='store_true', default=False)
+    parser.add_argument("--rollout_method", type=str, default="mcts.get_next_action")
     
     config = parser.parse_args()
 
     args_list = [
         {
             "temperature": 1.0,
-            "max_length": 64,
+            "max_length": config.tree_max_length,
+            "max_actions": config.tree_max_actions,
             "pb_c_init": 3,
             "num_simulations": 10,
             "k_maj": config.k_maj,
@@ -101,13 +110,15 @@ if __name__ == "__main__":
             "max_token": 5000,
             "reset_total_tree": False,
             "clear_total_tree": True,
-            "rollout_method": "mcts.get_next_action",
+            "rollout_method": config.rollout_method,
             "select_by_prior": False,
             "max_new_tokens": 64,
             "mcts_sample": False,
             "prune_ratio": 0.9,
             "prune_value": None,
             "final_action_strategy": config.final_action_strategy,
+            "sequential_halving_start_nodes": config.sequential_halving_start_nodes,
+            "clear_subtrees": config.clear_subtrees,
         }
     ]
 
@@ -205,7 +216,7 @@ if __name__ == "__main__":
     def mcts_multi_search(args: "SearchArgs", problem_inst, no_terminal_reward=True):
         env = task_module.Env(
             config={
-                "max_actions": 50,
+                "max_actions": args.max_actions,
                 "sep": "",
                 "max_length": args.max_length,
                 "temperature": args.temperature,
@@ -228,6 +239,7 @@ if __name__ == "__main__":
                 "root_dirichlet_alpha": 0.3,
                 "root_noise_weight": 0.25,
                 "no_terminal_reward": no_terminal_reward,
+                "sequential_halving_start_nodes": args.sequential_halving_start_nodes,
                 "final_action_strategy": args.final_action_strategy,
             }
         )
@@ -259,6 +271,17 @@ if __name__ == "__main__":
             #     ).tolist()
             # else:
             #     value_list = []
+        elif args.rollout_method == "mcts.gumbel":
+            output_list = _mcts_gumbel(
+                mcts,
+                env,
+                policy_forward_value,
+                args.num_mcts_aggregation,
+                args.reset_total_tree,
+                sample=args.mcts_sample,
+                clear_total_tree=args.clear_total_tree,
+                clear_subtrees=args.clear_subtrees,
+            )
         elif args.rollout_method == "mcts.rap":
             output_list = mcts.rap(
                 env,

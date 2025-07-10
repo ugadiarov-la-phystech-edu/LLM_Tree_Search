@@ -48,6 +48,13 @@ class Node(object):
         self._terminated = True
 
     @property
+    def true_value(self):
+        if self._visit_count == 0:
+            return -math.inf
+
+        return self.value
+
+    @property
     def value(self) -> float:
         """
         Overview:
@@ -187,6 +194,59 @@ class LanguageNode(Node):
         return info_dict
 
 
+class GumbelNode(LanguageNode):
+    def __init__(
+        self,
+        parent: Node = None,
+        prior_p: float = 1.0,
+        prm_value: Optional[float] = None,
+        text_state: Optional[str] = None,
+        last_action: Optional[str] = None,
+        initial_value: float = 0.0,
+        num_generated_token: Optional[int] = None,
+    ) -> None:
+        super().__init__(parent, prior_p, prm_value, text_state, last_action, initial_value, num_generated_token)
+        if prior_p > 0:
+            self.prior_log_p = math.log(prior_p)
+        elif prior_p == 0:
+            self.prior_log_p = -math.inf
+        else:
+            raise ValueError(f'Unexpected prior_p: type: {type(prior_p)} value: {prior_p}')
+
+    def get_mixed_value_approximation(self) -> float:
+        sum_visits = sum([child.visit_count for child in self.children.values()])
+        sum_visited_pi = 0
+        sum_visited_pi_q = 0
+        for action in self.children:
+            node = self.children[action]
+            if node.visit_count > 0:
+                pi = node.prior_p
+                sum_visited_pi += pi
+                sum_visited_pi_q += pi * node.value()
+
+        mixed_value = self._initial_value
+        if sum_visited_pi != 0:
+            mixed_value += (sum_visits / sum_visited_pi) * sum_visited_pi_q
+        mixed_value /= 1. + sum_visits
+
+        return mixed_value
+
+    def get_estimated_q_tensor(self) -> Tuple[np.ndarray, np.ndarray]:
+        values = []
+        is_unvisited = []
+        for child in self.children.values():
+            values.append(child.true_value)
+            is_unvisited.append(child.visit_count == 0)
+        return np.array(values), np.array(is_unvisited)
+
+    def get_completed_q_values(self) -> np.ndarray:
+        completed_q, unvisited_children = self.get_estimated_q_tensor()
+        value_approximation = self.get_mixed_value_approximation()
+        completed_q[unvisited_children] = value_approximation
+
+        return completed_q
+
+
 def get_root(node: Node):
     while not node.is_root():
         node = node.parent
@@ -232,6 +292,9 @@ class MCTS(object):
 
         self._prune_node_under_v = self._cfg.get("prune_node_under_v", None)
         self._final_action_strategy = self._cfg["final_action_strategy"]
+        self._sequential_halving_start_nodes = self._cfg["sequential_halving_start_nodes"]
+        self.gumbel_c_visit = self._cfg.get("gumbel_c_visit", 50)
+        self.gumbel_c_scale = self._cfg.get("gumbel_c_scale", 1)
 
     @property
     def num_generated_token(self):
@@ -315,6 +378,11 @@ class MCTS(object):
 
         return action, action_probs
 
+    def sigma_q(self, node: Node, q_values: np.ndarray):
+        visits = [child.visit_count for child in node.children.values()]
+        max_visit = 0 if len(visits) == 0 else max(visits)
+        return (self.gumbel_c_visit + max_visit) * self.gumbel_c_scale * q_values
+
     def get_next_action(
         self,
         simulate_env: Type[CoTEnv],
@@ -369,6 +437,81 @@ class MCTS(object):
             action, action_probs = self.get_final_action_by_max_value(temperature, sample, root, simulate_env)
         else:
             assert False, f'Unexpected final action strategy: {self._final_action_strategy}'
+
+        self.root = root
+        if return_tree:
+            return action, action_probs, root
+        return action, action_probs
+
+    def get_next_action_gumbel(
+        self,
+        simulate_env: Type[CoTEnv],
+        policy_forward_fn: Optional[Callable] = None,
+        temperature: int = 1.0,
+        sample: bool = True,
+        return_tree=False,
+    ) -> Tuple[int, List[float]]:
+        """
+        Overview:
+            calculate the move probabilities based on visit counts at the root node.
+        Arguments:
+            - simulate_env (:obj:`Class BaseGameEnv`): The class of simulate env.
+            - policy_forward_fn (:obj:`Function`): The Callable to compute the action probs and state value.
+            - temperature (:obj:`Int`): Temperature is a parameter that controls the "softness" of the probability distribution.
+            - sample (:obj:`Bool`): The value of the node.
+        Returns:
+            - action (:obj:`Bool`): Select the action with the most visits as the final action.
+            - action_probs (:obj:`List`): The output probability of each action.
+        """
+        if self.root is None:
+            root = GumbelNode(text_state=simulate_env.get_state())
+            self._expand_leaf_node(root, simulate_env, policy_forward_fn)
+            self.root = root
+        else:
+            root = self.root
+
+        if root.is_leaf():
+            # if root is leaf node, expand it
+            # We have updated the environment legal action when we test the node is leaf node
+            # So the expansion won't have bugs
+            self._expand_leaf_node(root, simulate_env, policy_forward_fn)
+
+        possible_actions = list(self.root.children)
+        n_selected_action = self._sequential_halving_start_nodes
+        gumbel_logits = np.random.gumbel(size=len(possible_actions))
+        gumbel_logits += np.array([child.prior_log_p for child in self.root.children.values()])
+        selected_child_ids = np.argpartition(gumbel_logits, len(possible_actions) - n_selected_action)[-n_selected_action:]
+
+        for n in range(self._num_simulations):
+            simulate_env_copy = simulate_env.copy()
+            simulate_env_copy.battle_mode = simulate_env_copy.mcts_mode
+            self._simulate(root, simulate_env_copy, policy_forward_fn, first_action=possible_actions[selected_child_ids[n % selected_child_ids.shape[0]]])
+
+        while True:
+            estimated_q = self.root.get_estimated_q_tensor()[0]
+            updated_gumbels = gumbel_logits + self.sigma_q(self.root, estimated_q)
+            selected_gumbels = updated_gumbels[selected_child_ids]
+
+            n_selected_action //= 2
+            selected_child_ids = selected_child_ids[np.argpartition(selected_gumbels, selected_gumbels.shape[0] - n_selected_action)[-n_selected_action:]]
+            if n_selected_action == 1:
+                break
+
+            for n in range(self._num_simulations):
+                simulate_env_copy = simulate_env.copy()
+                simulate_env_copy.battle_mode = simulate_env_copy.mcts_mode
+                self._simulate(root, simulate_env_copy, policy_forward_fn,
+                               first_action=possible_actions[selected_child_ids[n % selected_child_ids.shape[0]]])
+
+        assert selected_child_ids.shape[0] == 1
+        action = possible_actions[selected_child_ids[0]]
+        action_probs = np.zeros(len(possible_actions), dtype=np.float32)
+        action_probs[selected_child_ids[0]] = 1
+
+        # for debugging
+        # print('after simulation')
+        # print('value= {}'.format([(k, v.value) for k,v in root.children.items()]))
+        # print('visit_count= {}'.format([(k, v.visit_count) for k,v in root.children.items()]))
 
         self.root = root
         if return_tree:
@@ -698,6 +841,7 @@ class MCTS(object):
         node: Node,
         simulate_env: Type[CoTEnv],
         policy_forward_fn: Optional[Callable] = None,
+        first_action=None,
     ) -> None:
         """
         Overview:
@@ -712,7 +856,19 @@ class MCTS(object):
         winner = None
         done = False
         while not node.is_leaf():
-            action, node = self._select_child(node, simulate_env)
+            if first_action is None:
+                action, node = self._select_child(node, simulate_env)
+            else:
+                if not node.has_collected_token_num:
+                    self._num_generated_token += sum(
+                        c.num_generated_token for c in node.children.values()
+                    )
+                    node.has_collected_token_num = True
+
+                node = node.children[first_action]
+                action = first_action
+                first_action = None
+
             _, _, terminated, truncated, info = simulate_env.step(
                 action, update_legal_action=(node.is_leaf() and node.visit_count == 1)
             )
@@ -958,7 +1114,7 @@ class MCTS(object):
                     # ))
                     continue
 
-            node.children[action] = LanguageNode(
+            node.children[action] = GumbelNode(
                 parent=node,
                 prior_p=prob,
                 #  prm_value=prm_value,
