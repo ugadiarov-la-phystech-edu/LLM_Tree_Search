@@ -202,7 +202,7 @@ if __name__ == "__main__":
             "final_action_strategy": config.final_action_strategy,
             "sequential_halving_start_nodes": config.sequential_halving_start_nodes,
             "clear_subtrees": config.clear_subtrees,
-            "non_root_child_selection_model": config.non_root_child_selection_mode,
+            "non_root_child_selection_mode": config.non_root_child_selection_mode,
         },
     ]
 
