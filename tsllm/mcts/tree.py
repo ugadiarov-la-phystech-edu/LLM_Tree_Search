@@ -443,6 +443,34 @@ class MCTS(object):
             return action, action_probs, root
         return action, action_probs
 
+    @staticmethod
+    def get_sequential_halving_simulations_for_levels(num_actions_at_root: int, simulation_budget: int):
+        num_simulations_per_action = []
+        actions_on_levels = []
+
+        # number of levels if simulations
+        num_levels = math.floor(math.log2(num_actions_at_root))
+
+        remaining_actions = num_actions_at_root
+        remaining_budget = simulation_budget
+        for level in range(num_levels):
+            if level > 0:
+                remaining_actions = max(2, math.floor(remaining_actions / 2))
+
+            if remaining_budget < remaining_actions:
+                break
+
+            actions_on_levels.append(remaining_actions)
+            num_simulations_per_action.append(
+                max(1, math.floor(remaining_budget / ((num_levels - level) * remaining_actions)))
+            )
+            remaining_budget -= num_simulations_per_action[-1] * actions_on_levels[-1]
+
+        if remaining_budget > 0:
+            num_simulations_per_action[-1] += remaining_budget // actions_on_levels[-1]
+
+        return actions_on_levels, num_simulations_per_action
+
     def get_next_action_gumbel(
         self,
         simulate_env: Type[CoTEnv],
@@ -483,41 +511,37 @@ class MCTS(object):
             else:
                 return possible_actions[0], np.ones((1,), dtype=np.float32)
 
-        n_selected_action = self._sequential_halving_start_nodes
         gumbel_logits = np.random.gumbel(size=len(possible_actions))
         gumbel_logits += np.array([child.prior_log_p for child in self.root.children.values()])
+        num_actions_on_levels, num_simulations_per_action_on_levels = self.get_sequential_halving_simulations_for_levels(
+            min(self._sequential_halving_start_nodes, len(possible_actions)), self._num_simulations)
 
-        if len(possible_actions) <= n_selected_action:
-            selected_child_ids = np.arange(len(possible_actions))
-        else:
-            selected_child_ids = np.argpartition(gumbel_logits, len(possible_actions) - n_selected_action)[-n_selected_action:]
-
-        for n in range(self._num_simulations):
-            simulate_env_copy = simulate_env.copy()
-            simulate_env_copy.battle_mode = simulate_env_copy.mcts_mode
-            self._simulate(root, simulate_env_copy, policy_forward_fn, first_action=possible_actions[selected_child_ids[n % selected_child_ids.shape[0]]])
-
-        while True:
-            n_selected_action //= 2
-            if len(possible_actions) > n_selected_action:
+        for level, (num_actions, num_simulations_per_action) in enumerate(zip(num_actions_on_levels, num_simulations_per_action_on_levels)):
+            if level == 0:
+                selected_child_ids = np.argpartition(gumbel_logits, len(possible_actions) - num_actions)[-num_actions:]
+            else:
                 estimated_q = self.root.get_estimated_q_tensor()[0]
                 updated_gumbels = gumbel_logits + self.sigma_q(self.root, estimated_q)
                 selected_gumbels = updated_gumbels[selected_child_ids]
-                selected_child_ids = selected_child_ids[np.argpartition(selected_gumbels, selected_gumbels.shape[0] - n_selected_action)[-n_selected_action:]]
+                selected_child_ids = selected_child_ids[np.argpartition(selected_gumbels, selected_gumbels.shape[0] - num_actions)[-num_actions:]]
 
-            if n_selected_action == 1:
-                break
+            for child_id in selected_child_ids:
+                for _ in range(num_simulations_per_action):
+                    simulate_env_copy = simulate_env.copy()
+                    simulate_env_copy.battle_mode = simulate_env_copy.mcts_mode
+                    self._simulate(root, simulate_env_copy, policy_forward_fn, first_action=possible_actions[child_id])
 
-            for n in range(self._num_simulations):
-                simulate_env_copy = simulate_env.copy()
-                simulate_env_copy.battle_mode = simulate_env_copy.mcts_mode
-                self._simulate(root, simulate_env_copy, policy_forward_fn,
-                               first_action=possible_actions[selected_child_ids[n % selected_child_ids.shape[0]]])
+        if selected_child_ids.shape[0] > 1:
+            estimated_q = self.root.get_estimated_q_tensor()[0]
+            updated_gumbels = gumbel_logits + self.sigma_q(self.root, estimated_q)
+            selected_gumbels = updated_gumbels[selected_child_ids]
+            selected_action_id = selected_child_ids[np.argmax(selected_gumbels)]
+        else:
+            selected_action_id = selected_child_ids[0]
 
-        assert selected_child_ids.shape[0] == 1
-        action = possible_actions[selected_child_ids[0]]
+        action = possible_actions[selected_action_id]
         action_probs = np.zeros(len(possible_actions), dtype=np.float32)
-        action_probs[selected_child_ids[0]] = 1
+        action_probs[selected_action_id] = 1
 
         # for debugging
         # print('after simulation')
