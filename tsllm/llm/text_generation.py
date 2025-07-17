@@ -1,3 +1,5 @@
+import math
+
 import requests
 import torch
 
@@ -18,23 +20,37 @@ def llm_gen_ct2(
 
     if isinstance(stop, int):
         stop = [stop]
-    step_results = generator.generate_batch(
-        [prompt_tokens],
-        sampling_temperature=generation_config.get("temperature", 1.0),
-        sampling_topp=generation_config.get("top_p", 1.0),
-        sampling_topk=generation_config.get("top_k", 1),
-        max_length=generation_config.get("max_new_tokens", 16),
-        return_scores=True,
-        include_prompt_in_result=False,
-        end_token=stop,
-        static_prompt=static_prompt_tokens,
-        max_batch_size=generation_config.get("max_batch_size", 0),
-        num_hypotheses=num_sequence,
-    )
+    generation_batch_size = generation_config.get("generation_batch_size", 8)
+    n_batches = math.ceil(num_sequence / generation_batch_size)
+    texts = []
+    logps = []
+    for batch_id in range(n_batches):
+        batch_num_sequence = generation_batch_size
+        if batch_id == n_batches - 1:
+            batch_num_sequence = num_sequence - generation_batch_size * batch_id
 
-    results = list(step_results)
-    texts = [tokenizer.decode(seq) for seq in results[0].sequences_ids]
-    logps = results[0].scores
+        step_results = generator.generate_batch(
+            [prompt_tokens],
+            sampling_temperature=generation_config.get("temperature", 1.0),
+            sampling_topp=generation_config.get("top_p", 1.0),
+            sampling_topk=generation_config.get("top_k", 1),
+            max_length=generation_config.get("max_new_tokens", 16),
+            return_scores=True,
+            include_prompt_in_result=False,
+            end_token=stop,
+            static_prompt=static_prompt_tokens,
+            max_batch_size=generation_config.get("max_batch_size", 0),
+            num_hypotheses=batch_num_sequence,
+        )
+
+        results = list(step_results)
+        for seq in results[0].sequences_ids:
+            texts.append(tokenizer.decode(seq))
+
+        for logp in results[0].scores:
+            logps.append(logp)
+
+    assert len(texts) == num_sequence
 
     return texts, logps
 
