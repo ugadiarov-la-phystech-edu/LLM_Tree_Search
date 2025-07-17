@@ -173,6 +173,7 @@ if __name__ == "__main__":
     parser.add_argument("--final_action_strategy", type=str, choices=['visits', 'expected_value', 'max_value'],
                         default="visits")
     parser.add_argument("--sequential_halving_start_nodes", type=int, default=5)
+    parser.add_argument("--num_simulations", type=int, default=5)
     parser.add_argument("--clear_subtrees", action='store_true', default=False)
     config = parser.parse_args()
 
@@ -183,7 +184,7 @@ if __name__ == "__main__":
             "max_length": config.tree_max_length,
             "max_action": config.tree_max_actions,
             "pb_c_init": 3,
-            "num_simulations": 5,
+            "num_simulations": config.num_simulations,
             "k_maj": 10,
             "num_mcts_aggregation": 1,
             "max_simulation": None,
