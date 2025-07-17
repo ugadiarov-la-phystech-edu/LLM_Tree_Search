@@ -222,7 +222,7 @@ class GumbelNode(LanguageNode):
             if node.visit_count > 0:
                 pi = node.prior_p
                 sum_visited_pi += pi
-                sum_visited_pi_q += pi * node.value()
+                sum_visited_pi_q += pi * node.value
 
         mixed_value = self._initial_value
         if sum_visited_pi != 0:
@@ -245,6 +245,15 @@ class GumbelNode(LanguageNode):
         completed_q[unvisited_children] = value_approximation
 
         return completed_q
+
+    @property
+    def children_prior_logits(self):
+        prior_logits = [child.prior_log_p for child in self.children.values()]
+        return np.asarray(prior_logits, dtype=np.float64)
+
+    def get_altered_visit_count_distribution_tensor(self):
+        visit_counts = np.asarray([child.visit_count for child in self.children.values()], dtype=np.float64)
+        return visit_counts / (1 + visit_counts.sum())
 
 
 def get_root(node: Node):
@@ -295,6 +304,8 @@ class MCTS(object):
         self._sequential_halving_start_nodes = self._cfg["sequential_halving_start_nodes"]
         self.gumbel_c_visit = self._cfg.get("gumbel_c_visit", 50)
         self.gumbel_c_scale = self._cfg.get("gumbel_c_scale", 1)
+
+        self.non_root_child_selection_mode = self._cfg.get("non_root_child_selection_mode", "ucb")
 
     @property
     def num_generated_token(self):
@@ -892,7 +903,12 @@ class MCTS(object):
         done = False
         while not node.is_leaf():
             if first_action is None:
-                action, node = self._select_child(node, simulate_env)
+                if self.non_root_child_selection_mode == 'ucb':
+                    action, node = self._select_child(node, simulate_env)
+                elif self.non_root_child_selection_mode == 'gumbel':
+                    action, node = self._select_child_gumbel(node, simulate_env)
+                else:
+                    assert False, f'Unexpected non_root_child_selection_mode={self.non_root_child_selection_mode}'
             else:
                 if not node.has_collected_token_num:
                     self._num_generated_token += sum(
@@ -997,6 +1013,24 @@ class MCTS(object):
             # but node.value should be the value of E[q(s2, action)], i.e. calculated from the perspective of player 2.
             # thus we add the negative when call update_recursive().
             node.update_recursive(-leaf_value, simulate_env.mcts_mode, node.max_value)
+
+    def _select_child_gumbel(self, node: GumbelNode, simulate_env: Type[CoTEnv]):
+        improved_policy = self.get_improved_policy(node)
+        action_id = np.argmax(improved_policy - node.get_altered_visit_count_distribution_tensor())
+        action, child = list(node.children.items())[action_id]
+
+        return action, child
+
+    @staticmethod
+    def softmax(x):
+        e_x = np.exp(x - np.max(x))
+        return e_x / e_x.sum(axis=0)
+
+    def get_improved_policy(self, node: GumbelNode):
+        completed_q_values = node.get_completed_q_values()
+        sigma_q_values = self.sigma_q(node, completed_q_values)
+        improved_policy = self.softmax(node.children_prior_logits + sigma_q_values)
+        return improved_policy
 
     def _select_child(
         self, node: LanguageNode, simulate_env: Type[CoTEnv]

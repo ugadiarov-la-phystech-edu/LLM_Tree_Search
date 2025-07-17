@@ -134,6 +134,7 @@ class SearchArgs:
     clear_subtrees: bool = False
     final_action_strategy: str = None
     sequential_halving_start_nodes: int = 10
+    non_root_child_selection_mode: str = 'ucb'
 
     # MCTS-Rollout Hyperparameters
     max_simulation: Optional[int] = None
@@ -175,6 +176,7 @@ if __name__ == "__main__":
     parser.add_argument("--sequential_halving_start_nodes", type=int, default=5)
     parser.add_argument("--num_simulations", type=int, default=5)
     parser.add_argument("--clear_subtrees", action='store_true', default=False)
+    parser.add_argument("--non_root_child_selection_mode", type=str, choices=['ucb', 'gumbel'], default='ucb')
     config = parser.parse_args()
 
     # RANDOM_SEEDS = [x * 10009 + 7 for x in [0, 1, 2]]
@@ -200,6 +202,7 @@ if __name__ == "__main__":
             "final_action_strategy": config.final_action_strategy,
             "sequential_halving_start_nodes": config.sequential_halving_start_nodes,
             "clear_subtrees": config.clear_subtrees,
+            "non_root_child_selection_model": config.non_root_child_selection_mode,
         },
     ]
 
@@ -381,6 +384,7 @@ if __name__ == "__main__":
             "no_terminal_reward": no_terminal_reward,
             "final_action_strategy": args.final_action_strategy,
             "sequential_halving_start_nodes": args.sequential_halving_start_nodes,
+            "non_root_child_selection_mode": args.non_root_child_selection_mode,
         }
         if tree_path and tree_path.exists():
             mcts = MCTS.from_json(cfg, tree_path, reset_visit_info=True)
