@@ -32,18 +32,19 @@ def _cot_gen(
     # if use_prefix:
     #     prompt = prefix + "\n" + prompt
     prompt = query_str_build_fn(problem["question"])
-    texts, logps = llm_gen_ct2(
+    texts, logps, num_tokens = llm_gen_ct2(
         ct2_generator,
         tokenizer,
         static_prompt=None,
         prompt=prompt,
         num_sequence=n,
         stop=stop,
+        return_num_tokens=True,
         max_new_tokens=max_new_tokens,
         **kwargs,
     )
 
-    return texts
+    return texts, num_tokens
 
 
 """convert hf model to ct2 model"""
@@ -122,19 +123,21 @@ def main(args):
 
     checker_fn = get_env_answer_checker(args.env_name)
     correct_num, total_num = 0, 0
+    correct_num_best_of_n = 0
+    total_tokens = 0
     with ThreadPoolExecutor(args.num_workers) as pool:
         results = pool.map(cot_gen, ds)
         with jsonlines.open(args.output_path, "w") as writer:
-            for i, txts in enumerate(pbar := tqdm(results, total=len(ds))):
+            for i, (txts, num_tokens) in enumerate(pbar := tqdm(results, total=len(ds))):
                 write_obj, cnt, len_list = check_answers(checker_fn, ds[i], txts)
                 writer.write(write_obj)
                 correct_num += cnt
                 total_num += len_list
+                correct_num_best_of_n += int(cnt > 0)
+                total_tokens += sum(num_tokens)
                 pbar.set_description(
-                    "{}-corrent: {:.3%}[{}/{}]".format(
-                        i + 1, correct_num / total_num, correct_num, total_num
-                    )
-                )
+                    f'{i + 1}-correct: {correct_num / total_num:.5f}[{correct_num}/{total_num}]; '
+                    f'BoN correct: {correct_num_best_of_n / (i + 1):.5f}; # tokens: {total_tokens / (i + 1):.1f}')
 
 
 if __name__ == "__main__":

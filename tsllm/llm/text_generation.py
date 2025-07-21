@@ -5,7 +5,7 @@ import torch
 
 
 def llm_gen_ct2(
-    generator, tokenizer, static_prompt, prompt, num_sequence, stop, **generation_config
+    generator, tokenizer, static_prompt, prompt, num_sequence, stop, return_num_tokens=False, **generation_config
 ):
     prompt_tokens = tokenizer.convert_ids_to_tokens(
         tokenizer.encode(prompt, add_special_tokens=False)
@@ -24,6 +24,7 @@ def llm_gen_ct2(
     n_batches = math.ceil(num_sequence / generation_batch_size)
     texts = []
     logps = []
+    num_tokens = []
     for batch_id in range(n_batches):
         batch_num_sequence = generation_batch_size
         if batch_id == n_batches - 1:
@@ -46,13 +47,18 @@ def llm_gen_ct2(
         results = list(step_results)
         for seq in results[0].sequences_ids:
             texts.append(tokenizer.decode(seq))
+            num_tokens.append(len(seq))
 
         for logp in results[0].scores:
             logps.append(logp)
 
     assert len(texts) == num_sequence
 
-    return texts, logps
+    result = [texts, logps]
+    if return_num_tokens:
+        result.append(num_tokens)
+
+    return result
 
 
 def llm_forward_ct2(generator, tokenizer, prompt):
