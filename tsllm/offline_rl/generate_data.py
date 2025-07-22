@@ -126,6 +126,7 @@ def main(args):
     correct_num, total_num = 0, 0
     correct_num_best_of_n = 0
     correct_num_most_probable = 0
+    correct_num_max_likelihood = 0
     total_tokens = 0
     with ThreadPoolExecutor(args.num_workers) as pool:
         results = pool.map(cot_gen, ds)
@@ -139,9 +140,14 @@ def main(args):
                 total_tokens += sum(num_tokens)
 
                 correct_num_most_probable += cnt[np.argmax(logps)]
+                log_likelihood = np.array(logps) / np.array(num_tokens)
+                correct_num_max_likelihood += cnt[np.argmax(log_likelihood)]
                 pbar.set_description(
                     f'{i + 1}-correct: {correct_num / total_num:.5f}[{correct_num}/{total_num}]; '
-                    f'BoN reward: {correct_num_best_of_n / (i + 1):.5f}; BoN likelihood: {correct_num_most_probable / (i + 1)}; # tokens: {total_tokens / (i + 1):.1f}')
+                    f'BoN reward: {correct_num_best_of_n / (i + 1):.5f}; '
+                    f'BoN most probable: {correct_num_most_probable / (i + 1)}; '
+                    f'BoN max likelihood: {correct_num_max_likelihood / (i + 1)}; '
+                    f'# tokens: {total_tokens / (i + 1):.1f}')
 
 
 if __name__ == "__main__":
