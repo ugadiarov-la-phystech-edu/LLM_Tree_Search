@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Callable
 import ctranslate2
+import numpy as np
 from transformers import AutoTokenizer
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from concurrent.futures import ThreadPoolExecutor
@@ -44,7 +45,7 @@ def _cot_gen(
         **kwargs,
     )
 
-    return texts, num_tokens
+    return texts, logps, num_tokens
 
 
 """convert hf model to ct2 model"""
@@ -70,14 +71,14 @@ def check_answers(check_fn, problem_inst, texts):
     }
     ans_list = []
 
-    cnt = 0
+    cnt = []
     for txt in texts:
         correct = check_fn(problem_inst["question"], problem_inst["answer"], txt)
-        if correct:
-            cnt += 1
+        cnt.append(int(correct))
         ans_list.append({"text": txt, "correct": correct})
 
     write_obj["answer"] = ans_list
+    assert len(cnt) == len(texts)
 
     return write_obj, cnt, len(texts)
 
@@ -124,20 +125,23 @@ def main(args):
     checker_fn = get_env_answer_checker(args.env_name)
     correct_num, total_num = 0, 0
     correct_num_best_of_n = 0
+    correct_num_most_probable = 0
     total_tokens = 0
     with ThreadPoolExecutor(args.num_workers) as pool:
         results = pool.map(cot_gen, ds)
         with jsonlines.open(args.output_path, "w") as writer:
-            for i, (txts, num_tokens) in enumerate(pbar := tqdm(results, total=len(ds))):
+            for i, (txts, logps, num_tokens) in enumerate(pbar := tqdm(results, total=len(ds))):
                 write_obj, cnt, len_list = check_answers(checker_fn, ds[i], txts)
                 writer.write(write_obj)
-                correct_num += cnt
+                correct_num += sum(cnt)
                 total_num += len_list
-                correct_num_best_of_n += int(cnt > 0)
+                correct_num_best_of_n += int(sum(cnt) > 0)
                 total_tokens += sum(num_tokens)
+
+                correct_num_most_probable += cnt[np.argmax(logps)]
                 pbar.set_description(
                     f'{i + 1}-correct: {correct_num / total_num:.5f}[{correct_num}/{total_num}]; '
-                    f'BoN correct: {correct_num_best_of_n / (i + 1):.5f}; # tokens: {total_tokens / (i + 1):.1f}')
+                    f'BoN reward: {correct_num_best_of_n / (i + 1):.5f}; BoN likelihood: {correct_num_most_probable / (i + 1)}; # tokens: {total_tokens / (i + 1):.1f}')
 
 
 if __name__ == "__main__":
