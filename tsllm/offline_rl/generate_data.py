@@ -120,6 +120,7 @@ def main(args):
         top_p=1,
         top_k=100,
         max_batch_size=args.max_batch_size,
+        generation_batch_size=50,
     )
 
     checker_fn = get_env_answer_checker(args.env_name)
