@@ -192,7 +192,7 @@ class CoTEnv(BaseEnv):
         def reduce_prob_list(prob_list: List[List]) -> List:
             ans_list = []
             for scores in prob_list:
-                ans_list.append(np.exp(np.mean(scores)))
+                ans_list.append(np.exp(np.mean(scores)) / self.config["generation_config"]["temperature"])
             return ans_list
 
         prefix = (

@@ -177,12 +177,13 @@ if __name__ == "__main__":
     parser.add_argument("--num_simulations", type=int, default=5)
     parser.add_argument("--clear_subtrees", action='store_true', default=False)
     parser.add_argument("--non_root_child_selection_mode", type=str, choices=['ucb', 'gumbel'], default='ucb')
+    parser.add_argument("--temperature", type=float, default=1.0)
     config = parser.parse_args()
 
     # RANDOM_SEEDS = [x * 10009 + 7 for x in [0, 1, 2]]
     args_list = [
         {
-            "temperature": 1.0,
+            "temperature": config.temperature,
             "max_length": config.tree_max_length,
             "max_action": config.tree_max_actions,
             "pb_c_init": 3,
