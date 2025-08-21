@@ -103,8 +103,10 @@ def get_correct_proportion(
 
 @dataclass
 class SearchArgs:
-    # temperature used for llm generation in CoT(-SC) and MCTS tree expansion
+    # temperature used for llm generation in CoT(-SC)
     temperature: float = 1.0
+    # temperature used for MCTS tree expansion
+    action_distribution_temperature: float = 1.0
     # COT-SC number
     k_maj: int = 100
 
@@ -178,12 +180,14 @@ if __name__ == "__main__":
     parser.add_argument("--clear_subtrees", action='store_true', default=False)
     parser.add_argument("--non_root_child_selection_mode", type=str, choices=['ucb', 'gumbel'], default='ucb')
     parser.add_argument("--temperature", type=float, default=1.0)
+    parser.add_argument("--action_distribution_temperature", type=float, default=1.0)
     config = parser.parse_args()
 
     # RANDOM_SEEDS = [x * 10009 + 7 for x in [0, 1, 2]]
     args_list = [
         {
             "temperature": config.temperature,
+            "action_distribution_temperature": config.action_distribution_temperature,
             "max_length": config.tree_max_length,
             "max_action": config.tree_max_actions,
             "pb_c_init": 3,
@@ -374,6 +378,7 @@ if __name__ == "__main__":
             ],
             llm_gen_fn=partial(llm_gen_ct2, ct2_generator, tokenizer),
             tokenizer=tokenizer,
+            action_distribution_temperature=args.action_distribution_temperature,
         )
         # llm_gen_fn=partial(llm_gen_with_logp_v1, model, tokenizer),
         cfg = {

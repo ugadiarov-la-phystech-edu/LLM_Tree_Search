@@ -54,6 +54,7 @@ class Gsm8kEnv(CoTEnv):
         cot_example_str: str = COT_EXAMPLES,
         problem_format_str: str = PROBLEM_FORMAT_STR,
         reset=True,
+        action_distribution_temperature=1.0,
     ):
         super().__init__(
             config,
@@ -64,6 +65,7 @@ class Gsm8kEnv(CoTEnv):
             cot_example_str,
             problem_format_str,
             reset,
+            action_distribution_temperature
         )
 
     @property

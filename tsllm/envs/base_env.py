@@ -114,6 +114,7 @@ class CoTEnv(BaseEnv):
         cot_example_str: str,
         problem_format_str: str,
         reset=True,
+        action_distribution_temperature=1.0,
     ):
         self.config = config
         self.mcts_mode = "play_with_bot_mode"
@@ -124,6 +125,7 @@ class CoTEnv(BaseEnv):
         self.math_problem = None
         self._legal_actions = None
         self.is_few_shot = config.get("is_few_shot", False)
+        self.action_distribution_temperature = action_distribution_temperature
 
         self._task_desc_str = task_desc_str
         self._cot_example_str = cot_example_str
@@ -192,7 +194,7 @@ class CoTEnv(BaseEnv):
         def reduce_prob_list(prob_list: List[List]) -> List:
             ans_list = []
             for scores in prob_list:
-                ans_list.append(np.exp(np.mean(scores)) / self.config["generation_config"]["temperature"])
+                ans_list.append(np.exp(np.mean(scores)) / self.action_distribution_temperature)
             return ans_list
 
         prefix = (
