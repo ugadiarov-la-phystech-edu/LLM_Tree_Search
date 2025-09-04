@@ -265,7 +265,7 @@ if __name__ == "__main__":
         )
 
     def cot_direct_output(args, problem_inst, stop, **kwargs):
-        prompt = prompt_fn(problem_inst["question"])
+        prompt = prompt_fn(task_module.QUESTION_KEY)
         max_new_tokens = kwargs.pop("max_new_tokens", 256)
         max_new_tokens = max(256, max_new_tokens)
         texts, logps = llm_gen_ct2(
@@ -290,7 +290,7 @@ if __name__ == "__main__":
 
         return (
             judge_ans(
-                problem_inst["question"],
+                problem_inst[task_module.QUESTION_KEY],
                 extracted_groundtruth,
                 texts,
                 value_list,
@@ -302,7 +302,7 @@ if __name__ == "__main__":
         )
 
     def cot_sc_output(args, problem_inst, stop, **kwargs):
-        prompt = prompt_fn(problem_inst["question"])
+        prompt = prompt_fn(problem_inst[task_module.QUESTION_KEY])
         max_new_tokens = kwargs.pop("max_new_tokens", 256)
         max_new_tokens = max(256, max_new_tokens)
         texts, logps = llm_gen_ct2(
@@ -326,7 +326,7 @@ if __name__ == "__main__":
             )
         judge_results = {
             f"{k}@{args.k_maj}": judge_ans(
-                problem_inst["question"],
+                problem_inst[task_module.QUESTION_KEY],
                 extracted_groundtruth,
                 texts,
                 value_list,
@@ -337,7 +337,7 @@ if __name__ == "__main__":
             for k in CHOSEN_AGGR_METHODS
         }
         judge_results["c%"] = get_correct_proportion(
-            problem_inst["question"],
+            problem_inst[task_module.QUESTION_KEY],
             extracted_groundtruth,
             texts,
             extract_answer,
@@ -372,7 +372,7 @@ if __name__ == "__main__":
             },
             math_problems=[
                 {
-                    "question": problem["question"],
+                    "question": problem[task_module.QUESTION_KEY],
                     "answer": extract_groundtruth(problem["answer"]),
                 }
             ],
@@ -417,7 +417,7 @@ if __name__ == "__main__":
                 sample=args.mcts_sample,
                 clear_total_tree=args.clear_tree,
             )
-            prompt = prompt_fn(problem["question"])
+            prompt = prompt_fn(problem[task_module.QUESTION_KEY])
             texts = [o["text"] for o in output_list]
             if len(texts) > 0:
                 value_list = policy_forward_value(
@@ -440,7 +440,7 @@ if __name__ == "__main__":
                 clear_total_tree=args.clear_tree,
                 clear_subtrees=args.clear_subtrees,
             )
-            prompt = prompt_fn(problem["question"])
+            prompt = prompt_fn(problem[task_module.QUESTION_KEY])
             texts = [o["text"] for o in output_list]
             if len(texts) > 0:
                 value_list = policy_forward_value(
@@ -482,7 +482,7 @@ if __name__ == "__main__":
         extracted_groundtruth = extract_groundtruth(problem["answer"])
         judge_results = {
             f"{k}@{args.num_mcts_aggregation}": judge_ans(
-                problem["question"],
+                problem[task_module.QUESTION_KEY],
                 extracted_groundtruth,
                 texts,
                 value_list,
@@ -493,7 +493,7 @@ if __name__ == "__main__":
             for k in CHOSEN_AGGR_METHODS
         }
         judge_results["c%"] = get_correct_proportion(
-            problem["question"],
+            problem[task_module.QUESTION_KEY],
             extracted_groundtruth,
             texts,
             extract_answer,
@@ -522,7 +522,7 @@ if __name__ == "__main__":
             if writer is not None:
                 obj = {
                     "i": idx,
-                    "question": problem_inst["question"],
+                    "question": problem_inst[task_module.QUESTION_KEY],
                     "groundtruth": problem_inst["answer"],
                     "output": output,
                     "result": result,

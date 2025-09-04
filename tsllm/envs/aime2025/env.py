@@ -7,7 +7,7 @@ from .prompt import COT_EXAMPLES, COT_TASK_DESC, PROBLEM_FORMAT_STR, SEP
 
 ANS_RE = re.compile(r"The answer is (\-?[0-9\.\,]+)")
 STOP_STR = "The answer is "
-QUESTION_KEY = "question"
+QUESTION_KEY = "problem"
 
 
 def extract_answer(completion):
@@ -21,7 +21,7 @@ def extract_answer(completion):
 
 
 def extract_groundtruth(groundtruth_str: str):
-    x = groundtruth_str.split("#### ")[1].strip().replace(",", "")
+    x = groundtruth_str.strip().replace(",", "")
     try:
         float(x)
     except:
@@ -42,7 +42,7 @@ def judge_correct(problem_str: str, extracted_groundtruth: Optional[str], answer
         return False
 
 
-class Gsm8kEnv(CoTEnv):
+class Aime2025Env(CoTEnv):
     sep = SEP
 
     def __init__(
@@ -66,7 +66,7 @@ class Gsm8kEnv(CoTEnv):
             cot_example_str,
             problem_format_str,
             reset,
-            action_distribution_temperature
+            action_distribution_temperature,
         )
 
     @property
@@ -79,7 +79,7 @@ class Gsm8kEnv(CoTEnv):
         #  self.math_problem['answer']))
         # return extrated_answer == self.math_problem['answer']
         return judge_correct(
-            self.math_problem["question"], self.math_problem["answer"], extracted_answer
+            self.math_problem['question'], self.math_problem["answer"], extracted_answer
         )
 
     def init_action_history(self):
