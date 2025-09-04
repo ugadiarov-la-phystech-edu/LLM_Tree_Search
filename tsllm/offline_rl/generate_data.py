@@ -117,7 +117,7 @@ def main(args):
         query_str_build_fn,
         n=args.k,
         stop=tokenizer.eos_token_id,  # llama tokenizer: 2 is eos_token_id
-        max_new_tokens=256,
+        max_new_tokens=args.max_new_tokens,
         temperature=args.t,
         top_p=1,
         top_k=100,
@@ -173,5 +173,6 @@ if __name__ == "__main__":
     )
     parser.add_argument("--max_batch_size", type=int, default=50)
     parser.add_argument("--num_workers", type=int, default=8)
+    parser.add_argument("--max_new_tokens", type=int, default=256)
     args = parser.parse_args()
     main(args)
