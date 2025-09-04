@@ -27,12 +27,13 @@ def _cot_gen(
     n=100,
     stop=2,
     max_new_tokens=256,
+    question_key="question",
     **kwargs,
 ):
     # prompt = "Question: " + problem["question"] + "\nAnswer: Let's think step by step\n"
     # if use_prefix:
     #     prompt = prefix + "\n" + prompt
-    prompt = query_str_build_fn(problem["question"])
+    prompt = query_str_build_fn(problem[question_key])
     texts, logps, num_tokens = llm_gen_ct2(
         ct2_generator,
         tokenizer,
@@ -63,17 +64,17 @@ def _cot_gen(
 # cvt.convert(ct2_dir, force=True, quantization="bfloat16")
 
 
-def check_answers(check_fn, problem_inst, texts):
+def check_answers(check_fn, problem_inst, texts, question_key="question"):
     # groundtruth = extract_groundtruth(problem_inst["answer"])
     write_obj = {
-        "question": problem_inst["question"],
+        "question": problem_inst[question_key],
         "groundtruth": problem_inst["answer"],
     }
     ans_list = []
 
     cnt = []
     for txt in texts:
-        correct = check_fn(problem_inst["question"], problem_inst["answer"], txt)
+        correct = check_fn(problem_inst[question_key], problem_inst["answer"], txt)
         cnt.append(int(correct))
         ans_list.append({"text": txt, "correct": correct})
 
@@ -96,7 +97,7 @@ def main(args):
         args.output_path.parent.mkdir(parents=True)
 
     ct2_generator = ctranslate2.Generator(
-        args.ct2_dir, device="cuda", device_index=args.gpu_ids, compute_type="bfloat16"
+        args.ct2_dir, device="cuda", device_index=args.gpu_ids, compute_type="float16"
     )
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
     print(
@@ -108,6 +109,7 @@ def main(args):
     query_str_build_fn = partial(
         get_default_query_str_builder(args.env_name), is_few_shot=args.is_few_shot
     )
+    question_key = import_module(f"tsllm.envs.{args.env_name}").QUESTION_KEY
     cot_gen = partial(
         _cot_gen,
         ct2_generator,
@@ -121,6 +123,7 @@ def main(args):
         top_k=100,
         max_batch_size=args.max_batch_size,
         generation_batch_size=50,
+        question_key=question_key,
     )
 
     checker_fn = get_env_answer_checker(args.env_name)
@@ -133,7 +136,7 @@ def main(args):
         results = pool.map(cot_gen, ds)
         with jsonlines.open(args.output_path, "w") as writer:
             for i, (txts, logps, num_tokens) in enumerate(pbar := tqdm(results, total=len(ds))):
-                write_obj, cnt, len_list = check_answers(checker_fn, ds[i], txts)
+                write_obj, cnt, len_list = check_answers(checker_fn, ds[i], txts, question_key=question_key)
                 writer.write(write_obj)
                 correct_num += sum(cnt)
                 total_num += len_list
