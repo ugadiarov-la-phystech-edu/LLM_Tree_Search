@@ -97,7 +97,7 @@ def main(args):
         args.output_path.parent.mkdir(parents=True)
 
     ct2_generator = ctranslate2.Generator(
-        args.ct2_dir, device="cuda", device_index=args.gpu_ids, compute_type="float16"
+        args.ct2_dir, device="cuda", device_index=args.gpu_ids, compute_type="bfloat16"
     )
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
     print(
