@@ -96,6 +96,7 @@ class CoTEnv(BaseEnv):
             problem_format_str: str,
             reset=True,
             action_distribution_temperature=1.0,
+            reasoning_effort='medium',
     ):
         self.config = config
         self.mcts_mode = "play_with_bot_mode"
@@ -107,6 +108,7 @@ class CoTEnv(BaseEnv):
         self._legal_actions = None
         self.is_few_shot = config.get("is_few_shot", False)
         self.action_distribution_temperature = action_distribution_temperature
+        self.reasoning_effort = reasoning_effort
 
         self._task_desc_str = task_desc_str
         self._cot_example_str = cot_example_str
@@ -190,7 +192,7 @@ class CoTEnv(BaseEnv):
         # add the first prompted questions
         question = self.math_problem["question"]
         message = {"role": "user", "content": f'{question}. Provide numeric answer after "Answer:"'}
-        action = self.tokenizer.apply_chat_template([message], tokenize=False, add_generation_prompt=True, reasoning_effort="low")
+        action = self.tokenizer.apply_chat_template([message], tokenize=False, add_generation_prompt=True, reasoning_effort=self.reasoning_effort)
         return [action]
 
     def _generate(self, prompt):
