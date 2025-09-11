@@ -193,7 +193,7 @@ class BaseMCTSTrainer(ABC):
                 )
 
     def setup_model(self):
-        model_kwargs = dict(torch_dtype=torch.bfloat16, device_map="auto",)
+        model_kwargs = dict(torch_dtype=torch.bfloat16,)
         if self.config.model.model_path == "openai/gpt-oss-20b":
             from transformers import Mxfp4Config
             quantization_config = Mxfp4Config(dequantize=True)
