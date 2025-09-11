@@ -110,6 +110,7 @@ class SearchArgs:
     action_distribution_temperature: float = 1.0
     # COT-SC number
     k_maj: int = 100
+    max_new_tokens: int = 64
 
     # MCTS aggregation number
     num_mcts_aggregation: int = 5
@@ -180,6 +181,7 @@ if __name__ == "__main__":
     parser.add_argument("--non_root_child_selection_mode", type=str, choices=['ucb', 'gumbel'], default='ucb')
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--action_distribution_temperature", type=float, default=1.0)
+    parser.add_argument("--max_new_tokens", type=int, default=64)
     config = parser.parse_args()
 
     # RANDOM_SEEDS = [x * 10009 + 7 for x in [0, 1, 2]]
@@ -187,6 +189,7 @@ if __name__ == "__main__":
         {
             "temperature": config.temperature,
             "action_distribution_temperature": config.action_distribution_temperature,
+            "max_new_tokens": config.max_new_tokens,
             "max_length": config.tree_max_length,
             "max_action": config.tree_max_actions,
             "pb_c_init": 3,
@@ -350,7 +353,7 @@ if __name__ == "__main__":
                 "max_length": args.max_length,
                 "stop_str": "The answer is ",
                 "generation_config": {
-                    "max_new_tokens": 64,
+                    "max_new_tokens": args.max_new_tokens,
                     "do_sample": True,
                     "temperature": args.temperature,
                     "top_p": 1.0,
