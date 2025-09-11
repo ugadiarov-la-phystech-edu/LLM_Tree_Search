@@ -208,12 +208,6 @@ class CoTEnv(BaseEnv):
         return texts, logprobs
 
     def update_legal_actions(self):
-        def reduce_prob_list(prob_list: List[List]) -> List:
-            ans_list = []
-            for scores in prob_list:
-                ans_list.append(np.exp(np.mean(scores)) / self.action_distribution_temperature)
-            return ans_list
-
         prefix = None
         unprefixed_state = self.get_state()
         texts, logps = self._generate(unprefixed_state)
@@ -230,13 +224,12 @@ class CoTEnv(BaseEnv):
             )
             raise NoLegalActionException("No possible action have been generated.")
 
-        prob_list = reduce_prob_list(logprob_list)
-        prob_list = np.array(prob_list)
-        # normalize probability
-        probs = prob_list / np.sum(prob_list)
+        logprobs = np.array(logprob_list, dtype=np.float64)
+        unnormalized_probs = np.exp((logprobs - logprobs.max()) / self.action_distribution_temperature)
+        probs = unnormalized_probs / np.sum(unnormalized_probs)
         if np.isnan(probs).any().item():
-            log = f'\nlogprobs: {logprob_list}'
-            log += f'\nunnormalized prob_list: {prob_list}'
+            log = f'\nlogprobs: {logprobs}'
+            log += f'\nunnormalized prob_list: {unnormalized_probs}'
             log += f'\nprobs: {probs}'
             raise ValueError(log)
 
