@@ -96,7 +96,7 @@ class CoTEnv(BaseEnv):
             problem_format_str: str,
             reset=True,
             action_distribution_temperature=1.0,
-            reasoning_effort='medium',
+            reasoning_effort: str ='medium',
     ):
         self.config = config
         self.mcts_mode = "play_with_bot_mode"
@@ -350,6 +350,7 @@ class Gsm8kEnv(CoTEnv):
         problem_format_str: str = None,
         reset=True,
         action_distribution_temperature=1.0,
+        reasoning_effort: str = 'medium',
     ):
         super().__init__(
             config,
@@ -360,7 +361,8 @@ class Gsm8kEnv(CoTEnv):
             cot_example_str,
             problem_format_str,
             reset,
-            action_distribution_temperature
+            action_distribution_temperature,
+            reasoning_effort,
         )
 
     @property
