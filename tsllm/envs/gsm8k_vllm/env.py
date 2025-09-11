@@ -217,23 +217,29 @@ class CoTEnv(BaseEnv):
         prefix = None
         unprefixed_state = self.get_state()
         texts, logps = self._generate(unprefixed_state)
-        text_list, prob_list = [], []
+        text_list, logprob_list = [], []
 
         for i in range(len(texts)):
             if len(texts[i]) > 0 and texts[i] not in text_list:
                 text_list.append(texts[i])
-                prob_list.append(logps[i])
+                logprob_list.append(logps[i])
 
-        if len(prob_list) == 0:
+        if len(logprob_list) == 0:
             print_with_rank(
                 "{} {} {}".format(prefix, 0, unprefixed_state)
             )
             raise NoLegalActionException("No possible action have been generated.")
 
-        prob_list = reduce_prob_list(prob_list)
+        prob_list = reduce_prob_list(logprob_list)
         prob_list = np.array(prob_list)
         # normalize probability
-        prob_list = prob_list / np.sum(prob_list)
+        probs = prob_list / np.sum(prob_list)
+        if np.isnan(probs).any().item():
+            log = f'\nlogprobs: {logprob_list}'
+            log += f'\nunnormalized prob_list: {prob_list}'
+            log += f'\nprobs: {probs}'
+            raise ValueError(log)
+
         # set add special tokens as False to remove bos/eos tokens
         num_token_list = [
             len(self.tokenizer.encode(txt, add_special_tokens=False))
@@ -241,7 +247,7 @@ class CoTEnv(BaseEnv):
         ]
         _legal_actions = [
             {"action": action, "prob": prob, "num_token": n_token}
-            for action, prob, n_token in zip(text_list, prob_list, num_token_list)
+            for action, prob, n_token in zip(text_list, probs, num_token_list)
         ]
 
         return _legal_actions
