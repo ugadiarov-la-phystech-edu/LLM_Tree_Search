@@ -3,6 +3,7 @@ import os
 from typing import List, Optional
 import numpy as np
 import torch
+from peft import LoraConfig, get_peft_model
 from torch.utils.data import DataLoader, DistributedSampler
 import time
 from tsllm.distributed.utils import print_rank_0, print_with_rank
@@ -40,6 +41,26 @@ class AccelerateMCTSTrainer(BaseMCTSTrainer):
         super().__init__(config, **kwargs)
         self.model = self.setup_model()
         self.model = self.model.to(torch.bfloat16)
+
+        peft_config = LoraConfig(
+            r=8,
+            lora_alpha=16,
+            target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+            bias="none",
+            target_parameters=[
+                "7.mlp.experts.gate_up_proj",
+                "7.mlp.experts.down_proj",
+                "15.mlp.experts.gate_up_proj",
+                "15.mlp.experts.down_proj",
+                "23.mlp.experts.gate_up_proj",
+                "23.mlp.experts.down_proj",
+            ],
+        )
+        self.model = get_peft_model(self.model, peft_config)
+        for name, param in self.model.named_parameters():
+            if 'v_head' in name:
+                param.requires_grad = True
+
         self.opt = self.setup_optimizer()
 
         (
