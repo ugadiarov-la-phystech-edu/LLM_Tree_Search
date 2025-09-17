@@ -17,7 +17,7 @@ def print_with_rank(message):
         rank = dist.get_rank()
         world_size = dist.get_world_size()
 
-        print("[{}/{}]: {}".format(rank, world_size, message), flush=True)
+        print("\n[{}/{}]: {}\n".format(rank, world_size, message), flush=True)
     else:
         print(message, flush=True)
 

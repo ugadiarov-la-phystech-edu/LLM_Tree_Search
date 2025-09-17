@@ -2,7 +2,7 @@ from importlib import import_module
 from functools import partial
 from transformers import PreTrainedTokenizer
 from typing import Optional, Callable, Dict
-from .utils import build_critic_data_component, build_sft_data_component
+from .utils import build_sft_data_component, build_critic_data_component_in_tokens
 
 
 def get_env_datasets(env_name: str, **kwargs):
@@ -23,12 +23,13 @@ def get_default_sft_data_builder(env_name: str, **kwargs):
     )
 
 
-def get_default_critic_data_builder(env_name: str, **kwargs):
+def get_default_critic_data_builder_in_tokens(env_name: str, **kwargs):
     task_module = import_module(f"tsllm.envs.{env_name}")
     return partial(
-        build_critic_data_component,
+        build_critic_data_component_in_tokens,
         build_query_str_fn=task_module.Env.build_query_str,
-        sep=task_module.SEP,
+        sep_token=task_module.SEP,
+        last_query_token=task_module.LAST_QUERY_TOKEN,
         cot_task_desc_str=task_module.COT_TASK_DESC,
         cot_example_str=task_module.COT_EXAMPLES,
         problem_format_str=task_module.PROBLEM_FORMAT_STR,

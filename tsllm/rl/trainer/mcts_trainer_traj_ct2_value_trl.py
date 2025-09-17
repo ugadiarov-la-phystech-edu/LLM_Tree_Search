@@ -8,8 +8,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 import time
 from tsllm.distributed.utils import print_rank_0, print_with_rank
 from tsllm.envs import (
-    get_default_critic_data_builder,
-    get_env_datasets,
+    get_env_datasets, get_default_critic_data_builder_in_tokens,
 )
 from tsllm.rl.config import TrainConfig
 from tsllm.rl.data.node_types_new import TrajBatch, TrajInstance
@@ -42,24 +41,24 @@ class AccelerateMCTSTrainer(BaseMCTSTrainer):
         self.model = self.setup_model()
         self.model = self.model.to(torch.bfloat16)
 
-        peft_config = LoraConfig(
-            r=8,
-            lora_alpha=16,
-            target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
-            bias="none",
-            target_parameters=[
-                "7.mlp.experts.gate_up_proj",
-                "7.mlp.experts.down_proj",
-                "15.mlp.experts.gate_up_proj",
-                "15.mlp.experts.down_proj",
-                "23.mlp.experts.gate_up_proj",
-                "23.mlp.experts.down_proj",
-            ],
-        )
-        self.model = get_peft_model(self.model, peft_config)
-        for name, param in self.model.named_parameters():
-            if 'v_head' in name:
-                param.requires_grad = True
+        # peft_config = LoraConfig(
+        #     r=8,
+        #     lora_alpha=16,
+        #     target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+        #     bias="none",
+        #     target_parameters=[
+        #         "7.mlp.experts.gate_up_proj",
+        #         "7.mlp.experts.down_proj",
+        #         "15.mlp.experts.gate_up_proj",
+        #         "15.mlp.experts.down_proj",
+        #         "23.mlp.experts.gate_up_proj",
+        #         "23.mlp.experts.down_proj",
+        #     ],
+        # )
+        # self.model = get_peft_model(self.model, peft_config)
+        # for name, param in self.model.named_parameters():
+        #     if 'v_head' in name:
+        #         param.requires_grad = True
 
         self.opt = self.setup_optimizer()
 
@@ -123,7 +122,7 @@ class AccelerateMCTSTrainer(BaseMCTSTrainer):
             question = problem_inst["question"][0]
             self.q2idx_dict_test[question] = idx
 
-        build_env_offline_data_component_fn = get_default_critic_data_builder(
+        build_env_offline_data_component_fn = get_default_critic_data_builder_in_tokens(
             self.config.train.env_name
         )
         # init onpolicy buffer with pre-collect examples
