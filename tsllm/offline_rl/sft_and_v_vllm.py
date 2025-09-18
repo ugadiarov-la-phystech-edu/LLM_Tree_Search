@@ -48,7 +48,7 @@ def load_gpt_oss_20b_lora_critic(path, device_id,):
         bias="none",
     )
     model = get_peft_model(model, peft_config)
-    lora_params = [name for name in model.named_parameters() if 'lora' in name]
+    lora_params = [name for name, param in model.named_parameters() if 'lora' in name]
     lora_adapters_state_dict = load_file(os.path.join(path, 'adapter_model.safetensors'))
     lora_adapters_state_dict = {k.replace('base_model.model.model.', 'base_model.model.pretrained_model.model.'): v for
                                 k, v in lora_adapters_state_dict.items()}
