@@ -11,8 +11,7 @@ from vllm import LLM, SamplingParams
 
 
 INVALID_ANS = "[invalid]"
-STOP_STR = "Answer:"
-# STOP_STR = "The answer is "
+STOP_STR = "<|return|>"
 QUESTION_KEY = "question"
 ANS_RE = re.compile(r"([-+]?\d*\.\d+|\d+)")
 PROBLEM_FORMAT_STR = """<|start|>system<|message|>You are ChatGPT, a large language model trained by OpenAI.
@@ -74,14 +73,25 @@ class BaseEnv(abc.ABC):
 class CoTEnv(BaseEnv):
     """The basic environment for solving natural language problems using CoT"""
 
-    sep: str
-    last_query_token: str
+    sep: str = SEP
+    last_query_token: str = LAST_QUERY_TOKEN
 
     @staticmethod
     def build_response_str(
             answer_str: str, tokenizer: PreTrainedTokenizer, add_eos_token: bool
     ):
         raise NotImplementedError
+
+    @staticmethod
+    def build_query_str(
+        cot_task_desc: Optional[str],
+        cot_examples: Optional[str],
+        problem_format_str: str,
+        problem_input: str,
+        sep: str,
+        is_few_shot: bool = False,
+    ):
+        return problem_format_str.format(question=problem_input)
 
     @property
     def stop_str(self):
@@ -100,9 +110,9 @@ class CoTEnv(BaseEnv):
             math_problems,
             llm: LLM,
             tokenizer,
-            task_desc_str: str,
-            cot_example_str: str,
-            problem_format_str: str,
+            task_desc_str: str = COT_TASK_DESC,
+            cot_example_str: str = COT_EXAMPLES,
+            problem_format_str: str = PROBLEM_FORMAT_STR,
             reset=True,
             action_distribution_temperature=1.0,
             reasoning_effort: str ='medium',
@@ -124,9 +134,6 @@ class CoTEnv(BaseEnv):
         self._problem_format_str = problem_format_str
 
         assert not self.is_few_shot
-        assert self._task_desc_str is None
-        assert self._cot_example_str is None
-        assert self._problem_format_str is None
 
         self.last_query_token_id = self.tokenizer.encode(self.last_query_token)[0]
         self.sep_token_id = self.tokenizer.encode(self.sep)[0]
@@ -189,20 +196,13 @@ class CoTEnv(BaseEnv):
         if len(self.action_history) == 1:
             return self.action_history[0]
 
-        return self.action_history[0] + SEP.join(self.action_history[1:]) + SEP
-
-    # def init_action_history(self):
-    #     # add the first prompted questions
-    #     return [
-    #         f"Question: {self.math_problem['question']}\nAnswer: Let's think step by step"
-    #     ]
+        return ''.join(self.action_history)
 
     def init_action_history(self):
         # add the first prompted questions
         question = self.math_problem["question"]
-        message = {"role": "user", "content": f'{question}. Provide numeric answer after "Answer:"'}
-        action = self.tokenizer.apply_chat_template([message], tokenize=False, add_generation_prompt=True, reasoning_effort=self.reasoning_effort)
-        return [action]
+        return [self.build_query_str(cot_task_desc=None, cot_examples=None, problem_format_str=self._problem_format_str,
+                                     problem_input=question, sep=None, )]
 
     def _generate(self, prompt):
         outputs = self.llm.generate([prompt], sampling_params=self.sampling_params, use_tqdm=False,)[0].outputs
@@ -263,7 +263,7 @@ class CoTEnv(BaseEnv):
 
     @property
     def answer(self):
-        return SEP.join(self.action_history[1:]) + SEP
+        return ''.join(self.action_history[1:])
 
     def get_done_and_info(self):
         info = {"winner": 0}
@@ -299,17 +299,6 @@ class CoTEnv(BaseEnv):
     @property
     def legal_actions(self):
         return self._legal_actions
-
-
-# def extract_answer(completion):
-#     ANS_RE = re.compile(r"The answer is (\-?[0-9\.\,]+)")
-#     match = ANS_RE.search(completion)
-#     if match:
-#         match_str = match.group(1).strip()
-#         match_str = match_str.replace(",", "")
-#     else:
-#         return INVALID_ANS
-#     return match_str
 
 
 def extract_answer(completion):
@@ -348,26 +337,15 @@ class Gsm8kEnv(CoTEnv):
     sep = SEP
     last_query_token = LAST_QUERY_TOKEN
 
-    @staticmethod
-    def build_query_str(
-        cot_task_desc: Optional[str],
-        cot_examples: Optional[str],
-        problem_format_str: str,
-        problem_input: str,
-        sep: str,
-        is_few_shot: bool = False,
-    ):
-        return problem_format_str.format(question=problem_input)
-
     def __init__(
         self,
         config,
         math_problems,
         llm,
         tokenizer,
-        task_desc_str: str = None,
-        cot_example_str: str = None,
-        problem_format_str: str = None,
+        task_desc_str: str = COT_TASK_DESC,
+        cot_example_str: str = COT_EXAMPLES,
+        problem_format_str: str = PROBLEM_FORMAT_STR,
         reset=True,
         action_distribution_temperature=1.0,
         reasoning_effort: str = 'medium',

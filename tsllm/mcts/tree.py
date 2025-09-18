@@ -1152,7 +1152,7 @@ class MCTS(object):
             assert len(simulate_env.legal_actions) > 0
             child_values = policy_forward_fn(
                 [
-                    text_state + x["action"] + simulate_env.sep
+                    text_state + x["action"]
                     for x in simulate_env.legal_actions
                 ]
             ).tolist()
