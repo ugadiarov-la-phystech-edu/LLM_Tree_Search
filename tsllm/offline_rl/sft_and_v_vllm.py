@@ -70,6 +70,7 @@ def load_gpt_oss_20b_lora_critic(path, device_id,):
 
     tokenizer = AutoTokenizer.from_pretrained(model_name, padding="right")
     stop_token_ids = [tokenizer.encode('\n\n')[0], tokenizer.eos_token_id]
+    last_query_token_id = tokenizer.encode('assistant')[0]
     def _call(texts):
         if isinstance(texts, str):
             texts = [texts]
@@ -79,6 +80,7 @@ def load_gpt_oss_20b_lora_critic(path, device_id,):
         for text in texts:
             model_inputs = tokenizer([text], return_tensors="pt", padding=True, truncation=True)
             if model_inputs.input_ids[-1] not in stop_token_ids:
+                assert model_inputs.input_ids[-1] != last_query_token_id, f'Try to calculate value on the last query token'
                 values.append(-1)
                 continue
 
