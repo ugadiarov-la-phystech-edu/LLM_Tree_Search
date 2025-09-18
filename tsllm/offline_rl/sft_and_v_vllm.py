@@ -79,8 +79,9 @@ def load_gpt_oss_20b_lora_critic(path, device_id,):
         values = []
         for text in texts:
             model_inputs = tokenizer([text], return_tensors="pt", padding=True, truncation=True)
-            if model_inputs.input_ids[-1] not in stop_token_ids:
-                assert model_inputs.input_ids[-1] != last_query_token_id, f'Try to calculate value on the last query token'
+            last_token_id = model_inputs.input_ids[0][-1]
+            if last_token_id not in stop_token_ids:
+                assert last_token_id != last_query_token_id, f'Try to calculate value on the last query token'
                 values.append(-1)
                 continue
 
