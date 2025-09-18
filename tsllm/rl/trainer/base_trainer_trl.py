@@ -69,16 +69,10 @@ class BaseMCTSTrainer(ABC):
             directory = os.path.join(self.config.train.checkpoint_dir, "hf_model")
 
         self.accelerator.wait_for_everyone()
-        self.accelerator.unwrap_model(self.model).save_pretrained(
-            directory,
-            save_function=self.accelerator.save,
-            is_main_process=self.accelerator.is_main_process,
-            state_dict=self.accelerator.get_state_dict(self.model),
-            **kwargs,
-        )
-
         if self.accelerator.is_main_process:
-            self.tokenizer.save_pretrained(directory)
+            unwrapped = self.accelerator.unwrap_model(self.model)
+            unwrapped.save_pretrained(directory, safe_serialization=True)
+            torch.save(unwrapped.v_head.state_dict(), f'{directory}/v_head.pt')
 
     def save(self, directory: Optional[str] = None, **kwargs):
         """Creates a checkpoint of the optimizer, scheduler and model"""

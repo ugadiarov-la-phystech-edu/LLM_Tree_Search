@@ -46,14 +46,14 @@ class AccelerateMCTSTrainer(BaseMCTSTrainer):
             lora_alpha=16,
             target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
             bias="none",
-            target_parameters=[
-                "7.mlp.experts.gate_up_proj",
-                "7.mlp.experts.down_proj",
-                "15.mlp.experts.gate_up_proj",
-                "15.mlp.experts.down_proj",
-                "23.mlp.experts.gate_up_proj",
-                "23.mlp.experts.down_proj",
-            ],
+            #target_parameters=[
+            #    "7.mlp.experts.gate_up_proj",
+            #    "7.mlp.experts.down_proj",
+            #    "15.mlp.experts.gate_up_proj",
+            #    "15.mlp.experts.down_proj",
+            #    "23.mlp.experts.gate_up_proj",
+            #    "23.mlp.experts.down_proj",
+            #],
         )
         self.model = get_peft_model(self.model, peft_config)
         for name, param in self.model.named_parameters():
@@ -314,6 +314,12 @@ class AccelerateMCTSTrainer(BaseMCTSTrainer):
                 stats_gas["train/learning_rate"] = self.scheduler.get_last_lr()[0]
                 self.accelerator.log(stats_gas, step=self.train_step)
                 self.train_step += 1
+                if self.train_step % 125 == 0:
+                    self.save_pretrained(
+                        os.path.join(train_config.checkpoint_dir, "last_model_hf")
+                    )
+                
+                    self.save_config()
 
             t1 = time.time()
 
@@ -342,7 +348,7 @@ class AccelerateMCTSTrainer(BaseMCTSTrainer):
                 )
                 self.save_config()
 
-            if self.iter_count % train_config.eval_interval == 0:
+            if False and self.iter_count % train_config.eval_interval == 0:
                 print_with_rank("EVALUATING iteration:{}".format(self.iter_count))
                 eval_stats = self.evaluate()
                 stats.update(eval_stats)
