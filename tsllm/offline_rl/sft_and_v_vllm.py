@@ -31,13 +31,24 @@ import importlib
 import random
 
 
-def load_gpt_oss_20b_lora_critic(path, device_id,):
+def set_visible_devices(*devices):
+    if len(devices) > 0:
+        devices = ','.join([str(device) for device in devices])
+    else:
+        devices = ''
+
+    os.environ['CUDA_VISIBLE_DEVICES'] = devices
+
+
+def load_gpt_oss_20b_lora_critic(path, critic_device_ids,):
+    set_visible_devices(*critic_device_ids)
     model_name = "openai/gpt-oss-20b"
     quantization_config = Mxfp4Config(dequantize=True)
     model_kwargs = dict(
         attn_implementation="eager",
         torch_dtype=torch.bfloat16,
         quantization_config=quantization_config,
+        device_map="auto",
     )
     model = AutoModelForCausalLMWithValueHead.from_pretrained(model_name, **model_kwargs)
     model = model.to(torch.bfloat16)
@@ -60,8 +71,6 @@ def load_gpt_oss_20b_lora_critic(path, device_id,):
     missing, unexpected = model.load_state_dict(lora_adapters_state_dict, strict=False)
     assert len(unexpected) == 0
 
-    device = f'cuda:{device_id}'
-    model = model.to(device)
     v_head_state_dict = torch.load(os.path.join(path, 'v_head.pt'))
     model.v_head.load_state_dict(v_head_state_dict)
 
@@ -72,6 +81,7 @@ def load_gpt_oss_20b_lora_critic(path, device_id,):
     stop_token_ids = [tokenizer.encode('\n\n')[0], tokenizer.eos_token_id]
     last_query_token_id = tokenizer.encode('assistant')[0]
     def _call(texts):
+        set_visible_devices(*critic_device_ids)
         if isinstance(texts, str):
             texts = [texts]
 
@@ -85,11 +95,18 @@ def load_gpt_oss_20b_lora_critic(path, device_id,):
                 values.append(-1)
                 continue
 
-            outputs = model(**model_inputs.to(device))
-            values.append(outputs[2][0][-1].item())
+            if len(model_inputs.input_ids[0]) > 2048:
+                values.append(-1)
+                print(f'\ninput_length={len(model_inputs.input_ids[0])}\n', flush=True)
+                continue
 
+            value = model(**model_inputs)[2][0][-1].item()
+            values.append(value)
+
+        set_visible_devices()
         return np.asarray(values)
 
+    set_visible_devices()
     return _call
 
 
@@ -221,7 +238,7 @@ if __name__ == "__main__":
     parser.add_argument("--model_name", type=str, required=True)
     parser.add_argument("--critic_checkpoint_path", type=str, default=None)
     parser.add_argument("--llm_device_id", type=int, required=True)
-    parser.add_argument("--critic_device_id", type=int, required=True)
+    parser.add_argument("--critic_device_ids", nargs='+', type=int, required=True)
     parser.add_argument("--save_dir", type=str, required=True)
     parser.add_argument("--env_name", type=str, default="gsm8k_vllm")
     parser.add_argument("--test", type=str2bool, default=True)
@@ -293,17 +310,11 @@ if __name__ == "__main__":
     local_rank = 0
     world_size = 1
 
-    def dummy(x):
-        if not isinstance(x, list | tuple):
-            x = [x]
-
-        return np.zeros(len(x))
-
     policy_forward_value = load_gpt_oss_20b_lora_critic(config.critic_checkpoint_path, config.critic_device_id, )
     tokenizer = AutoTokenizer.from_pretrained(config.model_name)
-    os.environ['CUDA_VISIBLES_DEVICES'] = f'cuda:{config.llm_device_id}'
-    llm = LLM(model=config.model_name, trust_remote_code=True)
-    os.environ['CUDA_VISIBLES_DEVICES'] = ''
+    set_visible_devices(config.llm_device_id)
+    llm = LLM(model=config.model_name, trust_remote_code=True, max_model_len=9192)
+    set_visible_devices()
 
     def prompt_fn(problem_input: str):
         return get_default_query_str_builder(config.env_name)(
