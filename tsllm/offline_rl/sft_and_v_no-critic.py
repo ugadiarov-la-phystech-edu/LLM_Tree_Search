@@ -1,13 +1,7 @@
 from pathlib import Path
 from typing import Dict, List, Optional
-import torch.distributed as dist
 from tsllm.argparse_utils import str2bool
-from tsllm.distributed.utils import (
-    print_rank_0,
-    print_with_rank,
-    init_distributed,
-    gather_scalar,
-)
+
 from tsllm.envs import get_env_datasets, get_default_query_str_builder
 from tsllm.inference.trajectory_collector import _mcts_rollout_v1, _mcts_gumbel
 from tsllm.inference.value import value_fn
@@ -129,7 +123,7 @@ class SearchArgs:
     pb_c_init: float = 10
 
     # MCTS-alpha hyperparamerters
-    num_simulations: int = 10
+    num_simulations: int = 5
     reset_total_tree: bool = False
     mcts_sample: bool = False
     clear_tree: bool = False
@@ -225,13 +219,13 @@ if __name__ == "__main__":
 
     save_dir = Path(config.save_dir) / config.env_name
 
-    local_rank, world_size = init_distributed()
-
-    print_rank_0("ENV: {}, test set: {}".format(config.env_name, config.test))
+    print("ENV: {}, test set: {}".format(config.env_name, config.test))
     train_ds, test_ds = get_env_datasets(config.env_name)
     if not config.test:
         test_ds = train_ds
 
+    local_rank = 0
+    world_size = 1
     device = torch.device(f"cuda:{local_rank}")
 
     if use_llm_self_eval:
@@ -256,7 +250,7 @@ if __name__ == "__main__":
 
     ############ CONVERT MODEL to CT2 files ###################
     ct2_generator, ct2_sp = load_ct2_model(
-        config.ct2_dir, device="cuda", device_index=local_rank, compute_type="bfloat16"
+        config.ct2_dir, device="cuda", device_index=local_rank, compute_type="float16"
     )
 
     def prompt_fn(problem_input: str):
@@ -616,7 +610,6 @@ if __name__ == "__main__":
             cot_save_path = writer_dir / "cot"
             if local_rank == 0 and not cot_save_path.exists():
                 cot_save_path.mkdir(parents=True)
-            dist.barrier()
             cot_writer = jsonlines.open(cot_save_path / f"{local_rank}.jsonl", "a")
         else:
             cot_writer = None
@@ -624,7 +617,6 @@ if __name__ == "__main__":
             cot_sc_save_path = writer_dir / "cot_sc"
             if local_rank == 0 and not cot_sc_save_path.exists():
                 cot_sc_save_path.mkdir(parents=True)
-            dist.barrier()
             cot_sc_writer = jsonlines.open(
                 cot_sc_save_path / f"{local_rank}.jsonl", "a"
             )
@@ -635,7 +627,6 @@ if __name__ == "__main__":
             mcts_no_term_save_path = writer_dir / "no_terminal_reward"
             if local_rank == 0 and not mcts_no_term_save_path.exists():
                 mcts_no_term_save_path.mkdir(parents=True)
-            dist.barrier()
             mcts_no_term_writer = jsonlines.open(
                 mcts_no_term_save_path / f"{local_rank}.jsonl", "a"
             )
@@ -646,7 +637,6 @@ if __name__ == "__main__":
             mcts_w_term_save_path = writer_dir / "with_terminal_reward"
             if local_rank == 0 and not mcts_w_term_save_path.exists():
                 mcts_w_term_save_path.mkdir(parents=True)
-            dist.barrier()
             mcts_w_term_writer = jsonlines.open(
                 mcts_w_term_save_path / f"{local_rank}.jsonl", "a"
             )
@@ -684,20 +674,20 @@ if __name__ == "__main__":
                 results_strs = _result_str(correct_cnt_dict, cnt, join_str="; ")
                 pbar.set_description(results_strs)
 
-        print_with_rank(results_strs)
+        print(results_strs)
 
-        cnt_list = gather_scalar(cnt, local_rank, world_size)
+        cnt_list = [cnt]
 
         gathered_results = {}
         for k, v in correct_cnt_dict.items():
             if isinstance(v, int):
-                gathered_list = gather_scalar(int(v), local_rank, world_size)
+                gathered_list = [int(v)]
                 if local_rank == 0:
                     gathered_results[k] = sum(gathered_list)
             elif isinstance(v, dict):
                 gathered_results[k] = {}
                 for sub_k, sub_v in v.items():
-                    gathered_list = gather_scalar(float(sub_v), local_rank, world_size)
+                    gathered_list = [float(sub_v)]
                     if local_rank == 0:
                         gathered_results[k][sub_k] = sum(gathered_list)
             else:
