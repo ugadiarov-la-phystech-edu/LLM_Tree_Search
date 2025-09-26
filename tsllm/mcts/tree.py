@@ -416,16 +416,16 @@ class MCTS(object):
         """
         if self.root is None:
             root = LanguageNode(text_state=simulate_env.get_state())
-            self._expand_leaf_node(root, simulate_env, policy_forward_fn)
+            self._expand_leaf_node_without_value(root, simulate_env,)
             self.root = root
         else:
             root = self.root
 
-        if root.is_leaf():
+        if root.is_leaf() and not root.terminated:
             # if root is leaf node, expand it
             # We have updated the environment legal action when we test the node is leaf node
             # So the expansion won't have bugs
-            self._expand_leaf_node(root, simulate_env, policy_forward_fn)
+            self._expand_leaf_node_without_value(root, simulate_env,)
 
         if sample:
             self._add_exploration_noise(root)
@@ -932,10 +932,10 @@ class MCTS(object):
             # In this case, node is leaf node and the visit count number of node is 1
             # Then we expand it
 
-            if not done and node.is_leaf() and node.visit_count == 1:
+            if not done and node.is_leaf() and node.visit_count == 1 and not node.terminated:
                 # Once we expand the node, the node will not be leaf node any more
                 # And the while won't break
-                self._expand_leaf_node(node, simulate_env, policy_forward_fn)
+                self._expand_leaf_node_without_value(node, simulate_env,)
 
             winner = info["winner"]
         """
@@ -1057,6 +1057,15 @@ class MCTS(object):
         scores = {}
 
         for action_tmp, child_tmp in node.children.items():
+            if child_tmp.is_leaf() and not child_tmp.terminated:
+                simulate_env_copy = simulate_env.copy()
+                _, _, terminated, truncated, _ = simulate_env_copy.step(action=action_tmp, update_legal_action=True)
+                if terminated or truncated:
+                    child_tmp._initial_value = 1
+                    child_tmp.set_as_terminate_node()
+                else:
+                    self._expand_leaf_node_without_value(child_tmp, simulate_env_copy)
+
             # print(a, simulate_env.legal_actions)
             # if action_tmp in simulate_env.legal_actions:
             ucb_score = self._ucb_score(node, child_tmp)
@@ -1104,10 +1113,13 @@ class MCTS(object):
         Returns:
             - leaf_value (:obj:`Bool`): the leaf node's value.
         """
+        assert node.is_leaf(), f'Trying to expand node with {len(node.children)} children. Node:\n{node}'
         text_state = simulate_env.get_state()
+        probs = []
         for i, action_dict in enumerate(simulate_env.legal_actions):
             action, prob = action_dict["action"], action_dict["prob"]
-            node.children[action] = LanguageNode(
+            probs.append(prob)
+            node.children[action] = GumbelNode(
                 parent=node,
                 prior_p=prob,
                 #  prm_value=prm_value,
@@ -1115,6 +1127,15 @@ class MCTS(object):
                 last_action=action,
                 num_generated_token=action_dict["num_token"],
             )
+
+        assert len(probs) > 0, f'The expanded node does not have actions. Legal actions:\n{simulate_env.legal_actions}'
+        if len(probs) == 1:
+            node._initial_value = 1
+        else:
+            probs = np.array(probs)
+            entropy = -np.sum(np.log(probs[probs > 0]) * probs[probs > 0])
+            node._initial_value = 1 - entropy / np.log(len(probs))
+            assert node._initial_value >= 0, node._initial_value
 
     def _expand_leaf_node(
         self,
@@ -1152,7 +1173,7 @@ class MCTS(object):
             assert len(simulate_env.legal_actions) > 0
             child_values = policy_forward_fn(
                 [
-                    text_state + x["action"]
+                    text_state + x["action"] + simulate_env.sep
                     for x in simulate_env.legal_actions
                 ]
             ).tolist()

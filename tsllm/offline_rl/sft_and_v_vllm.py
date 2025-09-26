@@ -13,10 +13,6 @@ from tsllm.inference.evaluation.vote_utils import (
 )
 from tsllm.envs.base_env import INVALID_ANS
 from transformers import AutoTokenizer
-from transformers import Mxfp4Config
-from trl import AutoModelForCausalLMWithValueHead
-from peft import PeftModel, PeftConfig, LoraConfig, get_peft_model
-from safetensors.torch import load_file
 import torch
 from functools import partial
 import json
@@ -38,76 +34,6 @@ def set_visible_devices(*devices):
         devices = ''
 
     os.environ['CUDA_VISIBLE_DEVICES'] = devices
-
-
-def load_gpt_oss_20b_lora_critic(path, critic_device_ids,):
-    set_visible_devices(*critic_device_ids)
-    model_name = "openai/gpt-oss-20b"
-    quantization_config = Mxfp4Config(dequantize=True)
-    model_kwargs = dict(
-        attn_implementation="eager",
-        torch_dtype=torch.bfloat16,
-        quantization_config=quantization_config,
-        device_map="auto",
-    )
-    model = AutoModelForCausalLMWithValueHead.from_pretrained(model_name, **model_kwargs)
-    model = model.to(torch.bfloat16)
-    peft_config = LoraConfig(
-        r=8,
-        lora_alpha=16,
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
-        bias="none",
-    )
-    model = get_peft_model(model, peft_config)
-    lora_params = [name for name, param in model.named_parameters() if 'lora' in name]
-    lora_adapters_state_dict = load_file(os.path.join(path, 'adapter_model.safetensors'))
-    lora_adapters_state_dict = {k.replace('base_model.model.model.', 'base_model.model.pretrained_model.model.'): v for
-                                k, v in lora_adapters_state_dict.items()}
-    lora_adapters_state_dict = {k.replace('.weight', '.default.weight'): v for k, v in lora_adapters_state_dict.items()}
-
-    wrong_param_names = [k for k in lora_adapters_state_dict if k not in lora_params]
-    assert len(wrong_param_names) == 0
-
-    missing, unexpected = model.load_state_dict(lora_adapters_state_dict, strict=False)
-    assert len(unexpected) == 0
-
-    v_head_state_dict = torch.load(os.path.join(path, 'v_head.pt'))
-    model.v_head.load_state_dict(v_head_state_dict)
-
-    model.requires_grad_(False)
-    model = model.eval()
-
-    tokenizer = AutoTokenizer.from_pretrained(model_name, padding="right")
-    stop_token_ids = [tokenizer.encode('\n\n')[0], tokenizer.eos_token_id]
-    last_query_token_id = tokenizer.encode('assistant')[0]
-    def _call(texts):
-        set_visible_devices(*critic_device_ids)
-        if isinstance(texts, str):
-            texts = [texts]
-
-        assert isinstance(texts, (list, tuple)), f'Type={type(texts)}'
-        values = []
-        for text in texts:
-            model_inputs = tokenizer([text], return_tensors="pt", padding=True, truncation=True)
-            last_token_id = model_inputs.input_ids[0][-1]
-            if last_token_id not in stop_token_ids:
-                assert last_token_id != last_query_token_id, f'Try to calculate value on the last query token'
-                values.append(-1)
-                continue
-
-            if len(model_inputs.input_ids[0]) > 2048:
-                values.append(-1)
-                print(f'\ninput_length={len(model_inputs.input_ids[0])}\n', flush=True)
-                continue
-
-            value = model(**model_inputs)[2][0][-1].item()
-            values.append(value)
-
-        set_visible_devices()
-        return np.asarray(values)
-
-    set_visible_devices()
-    return _call
 
 
 def setup_seed(seed):
@@ -236,9 +162,7 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument("--model_name", type=str, required=True)
-    parser.add_argument("--critic_checkpoint_path", type=str, default=None)
     parser.add_argument("--llm_device_id", type=int, required=True)
-    parser.add_argument("--critic_device_ids", nargs='+', type=int, required=True)
     parser.add_argument("--save_dir", type=str, required=True)
     parser.add_argument("--env_name", type=str, default="gsm8k_vllm")
     parser.add_argument("--test", type=str2bool, default=True)
@@ -310,7 +234,7 @@ if __name__ == "__main__":
     local_rank = 0
     world_size = 1
 
-    policy_forward_value = load_gpt_oss_20b_lora_critic(config.critic_checkpoint_path, config.critic_device_id, )
+    policy_forward_value = None
     tokenizer = AutoTokenizer.from_pretrained(config.model_name)
     set_visible_devices(config.llm_device_id)
     llm = LLM(model=config.model_name, trust_remote_code=True, max_model_len=9192)
