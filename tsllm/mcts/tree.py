@@ -1059,8 +1059,8 @@ class MCTS(object):
         for action_tmp, child_tmp in node.children.items():
             if child_tmp.is_leaf() and not child_tmp.terminated:
                 simulate_env_copy = simulate_env.copy()
-                simulate_env_copy.step(action=action_tmp, update_legal_action=True)
-                if simulate_env_copy.legal_actions is None or len(simulate_env_copy.legal_actions) == 0:
+                _, _, terminated, truncated, _ = simulate_env_copy.step(action=action_tmp, update_legal_action=True)
+                if terminated or truncated:
                     child_tmp._initial_value = 1
                     child_tmp.set_as_terminate_node()
                 else:
@@ -1128,11 +1128,14 @@ class MCTS(object):
                 num_generated_token=action_dict["num_token"],
             )
 
-        assert len(probs) > 1, f'The expanded node has less than two actions. Node:\n{node}'
-        probs = np.array(probs)
-        entropy = -np.sum(np.log(probs[probs > 0]) * probs[probs > 0])
-        node._initial_value = 1 - entropy / np.log(len(probs))
-        assert node._initial_value >= 0, node._initial_value
+        assert len(probs) > 0, f'The expanded node does not have actions. Legal actions:\n{simulate_env.legal_actions}'
+        if len(probs) == 1:
+            node._initial_value = 1
+        else:
+            probs = np.array(probs)
+            entropy = -np.sum(np.log(probs[probs > 0]) * probs[probs > 0])
+            node._initial_value = 1 - entropy / np.log(len(probs))
+            assert node._initial_value >= 0, node._initial_value
 
     def _expand_leaf_node(
         self,
