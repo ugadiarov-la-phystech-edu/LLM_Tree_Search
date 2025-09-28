@@ -180,6 +180,7 @@ if __name__ == "__main__":
     parser.add_argument("--action_distribution_temperature", type=float, default=1.0)
     parser.add_argument("--max_new_tokens", type=int, default=64)
     parser.add_argument("--reasoning_effort", type=str, choices=['low', 'medium', 'high'], default='medium')
+    parser.add_argument("--seed", type=int, required=True)
     config = parser.parse_args()
 
     # RANDOM_SEEDS = [x * 10009 + 7 for x in [0, 1, 2]]
@@ -204,7 +205,7 @@ if __name__ == "__main__":
             "clear_tree": True,
             "prune_ratio": 0.7,
             "prune_value": None,
-            "seed": 7,
+            "seed": config.seed,
             "final_action_strategy": config.final_action_strategy,
             "sequential_halving_start_nodes": config.sequential_halving_start_nodes,
             "clear_subtrees": config.clear_subtrees,
@@ -349,6 +350,7 @@ if __name__ == "__main__":
                     "return_dict_in_generate": True,
                     "output_scores": True,
                     "use_cache": True,
+                    "seed": args.seed,
                 },
             },
             math_problems=[

@@ -148,6 +148,7 @@ class CoTEnv(BaseEnv):
             top_p=generation_config['top_p'],
             n=self.config["max_actions"],
             logprobs=1,
+            seed=generation_config['seed'],
         )
 
         if reset:
