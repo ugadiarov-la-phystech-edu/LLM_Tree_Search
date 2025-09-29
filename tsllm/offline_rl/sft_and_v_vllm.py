@@ -238,7 +238,7 @@ if __name__ == "__main__":
     policy_forward_value = None
     tokenizer = AutoTokenizer.from_pretrained(config.model_name)
     set_visible_devices(config.llm_device_id)
-    llm = LLM(model=config.model_name, trust_remote_code=True, max_model_len=9192)
+    llm = LLM(model=config.model_name, trust_remote_code=True, max_model_len=9192, seed=config.seed)
     set_visible_devices()
 
     def prompt_fn(problem_input: str):
@@ -350,7 +350,6 @@ if __name__ == "__main__":
                     "return_dict_in_generate": True,
                     "output_scores": True,
                     "use_cache": True,
-                    "seed": args.seed,
                 },
             },
             math_problems=[
