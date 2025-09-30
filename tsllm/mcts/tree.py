@@ -306,6 +306,7 @@ class MCTS(object):
         self.gumbel_c_scale = self._cfg.get("gumbel_c_scale", 1)
 
         self.non_root_child_selection_mode = self._cfg.get("non_root_child_selection_mode", "ucb")
+        self.self_certainty_coef = self._cfg["self_certainty_coef"]
 
     @property
     def num_generated_token(self):
@@ -1136,6 +1137,8 @@ class MCTS(object):
             entropy = -np.sum(np.log(probs[probs > 0]) * probs[probs > 0])
             node._initial_value = 1 - entropy / np.log(len(probs))
             assert node._initial_value >= 0, node._initial_value
+
+        node._initial_value *= self.self_certainty_coef
 
     def _expand_leaf_node(
         self,

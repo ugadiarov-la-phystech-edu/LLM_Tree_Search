@@ -152,6 +152,8 @@ class SearchArgs:
 
     seed: int = 7
 
+    self_certainty_coef: float = 1
+
 
 if __name__ == "__main__":
     TEST_NO_TERMINAL = int(os.getenv("TEST_NO_TERMINAL", 0))
@@ -181,6 +183,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_new_tokens", type=int, default=64)
     parser.add_argument("--reasoning_effort", type=str, choices=['low', 'medium', 'high'], default='medium')
     parser.add_argument("--seed", type=int, required=True)
+    parser.add_argument("--self_certainty_coef", type=float, default=1)
     config = parser.parse_args()
 
     # RANDOM_SEEDS = [x * 10009 + 7 for x in [0, 1, 2]]
@@ -210,6 +213,7 @@ if __name__ == "__main__":
             "sequential_halving_start_nodes": config.sequential_halving_start_nodes,
             "clear_subtrees": config.clear_subtrees,
             "non_root_child_selection_mode": config.non_root_child_selection_mode,
+            "self_certainty_coef": config.self_certainty_coef,
         },
     ]
 
@@ -374,6 +378,7 @@ if __name__ == "__main__":
             "final_action_strategy": args.final_action_strategy,
             "sequential_halving_start_nodes": args.sequential_halving_start_nodes,
             "non_root_child_selection_mode": args.non_root_child_selection_mode,
+            "self_certainty_coef": args.self_certainty_coef,
         }
         if tree_path and tree_path.exists():
             mcts = MCTS.from_json(cfg, tree_path, reset_visit_info=True)
