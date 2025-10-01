@@ -21,7 +21,7 @@ PROBLEM_FORMAT_STR = """<|im_start|>user
 """
 COT_EXAMPLES = None
 COT_TASK_DESC = None
-SEP = ['.ĊĊ', 'ĠĊĊ']
+SEP = ['.ĊĊ']
 LAST_QUERY_TOKEN = None
 
 
