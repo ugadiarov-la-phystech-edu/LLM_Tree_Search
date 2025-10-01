@@ -18,7 +18,7 @@ PROBLEM_FORMAT_STR = """<|start|>system<|message|>You are ChatGPT, a large langu
 Knowledge cutoff: 2024-06
 Current date: 2025-09-13
 Reasoning: medium
-# Valid channels: analysis, commentary, final. Channel must be included for every message.<|end|><|start|>user<|message|>{question} Provide numeric answer after "Answer:"<|end|><|start|>assistant"""
+# Valid channels: analysis, commentary, final. Channel must be included for every message.<|end|><|start|>user<|message|>{question} Provide answer after "Answer:"<|end|><|start|>assistant"""
 COT_EXAMPLES = None
 COT_TASK_DESC = None
 SEP = "\n\n"
