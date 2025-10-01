@@ -12,7 +12,7 @@ from vllm import LLM, SamplingParams
 
 INVALID_ANS = "[invalid]"
 STOP_STR = "<|return|>"
-QUESTION_KEY = "question"
+QUESTION_KEY = "problem"
 ANS_RE = re.compile(r"([-+]?\d*\.\d+|\d+)")
 PROBLEM_FORMAT_STR = """<|start|>system<|message|>You are ChatGPT, a large language model trained by OpenAI.
 Knowledge cutoff: 2024-06
