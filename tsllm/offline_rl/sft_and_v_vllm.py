@@ -102,6 +102,8 @@ def get_correct_proportion(
 class SearchArgs:
     # temperature used for llm generation in CoT(-SC)
     temperature: float = 1.0
+    top_p: float = 1.0
+    top_k: int = 100
     # temperature used for MCTS tree expansion
     action_distribution_temperature: float = 1.0
     # COT-SC number
@@ -184,12 +186,16 @@ if __name__ == "__main__":
     parser.add_argument("--reasoning_effort", type=str, choices=['low', 'medium', 'high'], default='medium')
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--self_certainty_coef", type=float, default=1)
+    parser.add_argument("--top_p", type=float, default=1)
+    parser.add_argument("--top_k", type=int, default=100)
     config = parser.parse_args()
 
     # RANDOM_SEEDS = [x * 10009 + 7 for x in [0, 1, 2]]
     args_list = [
         {
             "temperature": config.temperature,
+            "top_p": config.top_p,
+            "top_k": config.top_k,
             "action_distribution_temperature": config.action_distribution_temperature,
             "max_new_tokens": config.max_new_tokens,
             "reasoning_effort": config.reasoning_effort,
@@ -349,8 +355,8 @@ if __name__ == "__main__":
                     "max_new_tokens": args.max_new_tokens,
                     "do_sample": True,
                     "temperature": args.temperature,
-                    "top_p": 1.0,
-                    "top_k": 100,
+                    "top_p": args.top_p,
+                    "top_k": args.top_k,
                     "return_dict_in_generate": True,
                     "output_scores": True,
                     "use_cache": True,
