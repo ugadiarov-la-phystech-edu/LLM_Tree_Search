@@ -188,6 +188,7 @@ if __name__ == "__main__":
     parser.add_argument("--self_certainty_coef", type=float, default=1)
     parser.add_argument("--top_p", type=float, default=1)
     parser.add_argument("--top_k", type=int, default=100)
+    parser.add_argument("--max_model_len", type=int, default=9192)
     config = parser.parse_args()
 
     # RANDOM_SEEDS = [x * 10009 + 7 for x in [0, 1, 2]]
@@ -248,7 +249,7 @@ if __name__ == "__main__":
     policy_forward_value = None
     tokenizer = AutoTokenizer.from_pretrained(config.model_name)
     set_visible_devices(config.llm_device_id)
-    llm = LLM(model=config.model_name, trust_remote_code=True, max_model_len=9192, seed=config.seed)
+    llm = LLM(model=config.model_name, trust_remote_code=True, max_model_len=config.max_model_len, seed=config.seed)
     set_visible_devices()
 
     def prompt_fn(problem_input: str):
