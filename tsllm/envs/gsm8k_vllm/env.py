@@ -22,6 +22,7 @@ Reasoning: medium
 COT_EXAMPLES = None
 COT_TASK_DESC = None
 SEP = "\n\n"
+SEP_TOKENS = ['.ĊĊ', ':ĊĊ', 'ĊĊ', '".ĊĊ', '"ĊĊ', '?ĊĊ']
 LAST_QUERY_TOKEN = 'assistant'
 
 
@@ -74,6 +75,7 @@ class CoTEnv(BaseEnv):
     """The basic environment for solving natural language problems using CoT"""
 
     sep: str = SEP
+    sep_tokens: list = SEP_TOKENS
     last_query_token: str = LAST_QUERY_TOKEN
 
     @staticmethod
@@ -136,8 +138,8 @@ class CoTEnv(BaseEnv):
         assert not self.is_few_shot
 
         self.last_query_token_id = self.tokenizer.encode(self.last_query_token)[0]
-        self.sep_token_id = self.tokenizer.encode(self.sep)[0]
-        stop_token_ids = [self.tokenizer.eos_token_id, self.sep_token_id]
+        self.sep_token_ids = self.tokenizer.convert_tokens_to_ids(self.sep_tokens)
+        stop_token_ids = [self.tokenizer.eos_token_id] + self.sep_token_ids
 
         generation_config = self.config['generation_config']
         self.sampling_params = SamplingParams(
@@ -335,6 +337,7 @@ def judge_correct(problem_str: str, extracted_groundtruth: Optional[str], answer
 
 class Gsm8kEnv(CoTEnv):
     sep = SEP
+    sep_tokens: list = SEP_TOKENS
     last_query_token = LAST_QUERY_TOKEN
 
     def __init__(
