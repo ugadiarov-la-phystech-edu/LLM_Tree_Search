@@ -219,7 +219,7 @@ class CoTEnv(BaseEnv):
 
         assert not self.is_few_shot
 
-        self.last_query_token_id = self.tokenizer.encode(self.last_query_token)[0]
+        self.last_query_token_id = None if self.last_query_token is None else self.tokenizer.encode(self.last_query_token)[0]
         self.sep_token_ids = self.tokenizer.convert_tokens_to_ids(self.sep_tokens)
         stop_token_ids = [self.tokenizer.eos_token_id] + self.sep_token_ids
 
