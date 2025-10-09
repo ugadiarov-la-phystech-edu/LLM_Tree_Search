@@ -150,7 +150,7 @@ class SearchArgs:
     #  it samples with llm's prior on the tree space, which is
     #  CoT-SC-Tree
     select_by_prior: bool = False
-
+    max_new_tokens: int = 64
     seed: int = 7
 
 
@@ -181,6 +181,8 @@ if __name__ == "__main__":
     parser.add_argument("--non_root_child_selection_mode", type=str, choices=['ucb', 'gumbel'], default='ucb')
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--action_distribution_temperature", type=float, default=1.0)
+    parser.add_argument("--max_new_tokens", type=int, default=64)
+    parser.add_argument("--seed", type=int, default=7)
     config = parser.parse_args()
 
     # RANDOM_SEEDS = [x * 10009 + 7 for x in [0, 1, 2]]
@@ -203,11 +205,12 @@ if __name__ == "__main__":
             "clear_tree": True,
             "prune_ratio": 0.7,
             "prune_value": None,
-            "seed": 7,
+            "seed": config.seed,
             "final_action_strategy": config.final_action_strategy,
             "sequential_halving_start_nodes": config.sequential_halving_start_nodes,
             "clear_subtrees": config.clear_subtrees,
             "non_root_child_selection_mode": config.non_root_child_selection_mode,
+            "max_new_tokens": config.max_new_tokens,
         },
     ]
 
@@ -358,7 +361,6 @@ if __name__ == "__main__":
             config={
                 "max_actions": args.max_action,
                 "max_length": args.max_length,
-                "stop_str": "The answer is ",
                 "generation_config": {
                     "max_new_tokens": 64,
                     "do_sample": True,
