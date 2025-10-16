@@ -57,7 +57,7 @@ class Gsm8kEnv(CoTEnv):
         sep: str,
         is_few_shot: bool = False,
     ):
-        return problem_format_str.format(problem_input)
+        return problem_format_str.format(question=problem_input)
 
     @staticmethod
     def build_response_str(
