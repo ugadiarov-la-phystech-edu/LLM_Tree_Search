@@ -107,6 +107,8 @@ class Gsm8kEnv(CoTEnv):
             action_distribution_temperature
         )
         assert self.task_prefix is None, f'Task prefix:{self.task_prefix}'
+        print(self.llm)
+        print(self.sampling_params)
 
     @property
     def stop_str(self):
@@ -202,3 +204,19 @@ class Gsm8kEnv(CoTEnv):
     @property
     def answer(self):
         return self.sep.join(self.action_history[1:]) + self.sep
+
+    def copy(self):
+        env = self.__class__(
+            self.config,
+            self.math_problems,
+            self.llm,
+            self.tokenizer,
+            self._task_desc_str,
+            self._cot_example_str,
+            self._problem_format_str,
+            reset=False,
+        )
+        env.math_problem = copy.deepcopy(self.math_problem)
+        env._legal_actions = copy.deepcopy(self._legal_actions)
+        env.action_history = copy.deepcopy(self.action_history)
+        return env
