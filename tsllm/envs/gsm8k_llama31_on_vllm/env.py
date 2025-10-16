@@ -82,7 +82,7 @@ class Gsm8kEnv(CoTEnv):
         token_ids = self.tokenizer.encode(self.sep)
         assert len(token_ids) == 2, f'len(token_ids): {len(token_ids)}'
         self.llm = llm
-        stop_token_ids = [token_ids[-1], self.tokenizer.eos_token_id]
+        stop_token_ids = [token_ids[-1], tokenizer.eos_token_id]
         generation_config = self.config['generation_config']
         self.sampling_params = SamplingParams(
             max_tokens=generation_config['max_new_tokens'],
