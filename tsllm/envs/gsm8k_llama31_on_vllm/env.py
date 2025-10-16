@@ -90,7 +90,7 @@ class Gsm8kEnv(CoTEnv):
             stop_token_ids=stop_token_ids,
             top_k=generation_config['top_k'],
             top_p=generation_config['top_p'],
-            n=self.config["max_actions"],
+            n=config["max_actions"],
             logprobs=1,
         )
         self._stop_token_ids = set(stop_token_ids)
