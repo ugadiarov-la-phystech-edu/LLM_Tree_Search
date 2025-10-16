@@ -107,8 +107,6 @@ class Gsm8kEnv(CoTEnv):
             action_distribution_temperature
         )
         assert self.task_prefix is None, f'Task prefix:{self.task_prefix}'
-        print(self.llm)
-        print(self.sampling_params)
 
     @property
     def stop_str(self):
