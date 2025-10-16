@@ -69,13 +69,15 @@ class Gsm8kEnv(CoTEnv):
         self,
         config,
         math_problems,
-        llm_gen_fn,
+        llm,
         tokenizer,
         task_desc_str: str = COT_TASK_DESC,
         cot_example_str: str = COT_EXAMPLES,
         problem_format_str: str = PROBLEM_FORMAT_STR,
         reset=True,
         action_distribution_temperature=1.0,
+        reasoning_effort='medium',
+        llm_gen_fn=None,
     ):
         super().__init__(
             config,
@@ -91,6 +93,7 @@ class Gsm8kEnv(CoTEnv):
         assert self.task_prefix is None, f'Task prefix:{self.task_prefix}'
         token_ids = self.tokenizer.encode(self.sep)
         assert len(token_ids) == 2, f'len(token_ids): {len(token_ids)}'
+        self.llm = llm
         stop_token_ids = [token_ids[-1], self.tokenizer.eos_token_id]
         generation_config = self.config['generation_config']
         self.sampling_params = SamplingParams(
