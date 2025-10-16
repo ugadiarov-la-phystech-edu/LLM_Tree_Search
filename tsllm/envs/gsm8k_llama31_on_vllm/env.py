@@ -79,7 +79,7 @@ class Gsm8kEnv(CoTEnv):
         reasoning_effort='medium',
         llm_gen_fn=None,
     ):
-        token_ids = self.tokenizer.encode(self.sep)
+        token_ids = tokenizer.encode(self.sep)
         assert len(token_ids) == 2, f'len(token_ids): {len(token_ids)}'
         self.llm = llm
         stop_token_ids = [token_ids[-1], tokenizer.eos_token_id]
