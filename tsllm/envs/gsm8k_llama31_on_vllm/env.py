@@ -79,18 +79,6 @@ class Gsm8kEnv(CoTEnv):
         reasoning_effort='medium',
         llm_gen_fn=None,
     ):
-        super().__init__(
-            config,
-            math_problems,
-            llm_gen_fn,
-            tokenizer,
-            task_desc_str,
-            cot_example_str,
-            problem_format_str,
-            reset,
-            action_distribution_temperature
-        )
-        assert self.task_prefix is None, f'Task prefix:{self.task_prefix}'
         token_ids = self.tokenizer.encode(self.sep)
         assert len(token_ids) == 2, f'len(token_ids): {len(token_ids)}'
         self.llm = llm
@@ -106,6 +94,19 @@ class Gsm8kEnv(CoTEnv):
             logprobs=1,
         )
         self._stop_token_ids = set(stop_token_ids)
+
+        super().__init__(
+            config,
+            math_problems,
+            llm_gen_fn,
+            tokenizer,
+            task_desc_str,
+            cot_example_str,
+            problem_format_str,
+            reset,
+            action_distribution_temperature
+        )
+        assert self.task_prefix is None, f'Task prefix:{self.task_prefix}'
 
     @property
     def stop_str(self):
