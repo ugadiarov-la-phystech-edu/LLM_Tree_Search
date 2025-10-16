@@ -101,6 +101,17 @@ def get_correct_proportion(
         return 0.0
 
 
+def zero_critic():
+    def _call(texts):
+        if isinstance(texts, str):
+            texts = [texts]
+
+        assert isinstance(texts, (list, tuple))
+        return np.zeros((len(texts),), dtype=np.float32)
+
+    return _call
+
+
 @dataclass
 class SearchArgs:
     # temperature used for llm generation in CoT(-SC)
@@ -163,7 +174,8 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument("--ct2_dir", type=str, required=True)
-    parser.add_argument("--critic_model_path", type=str, required=True)
+    parser.add_argument("--critic_model_path", type=str, required=False)
+    parser.add_argument("--zero_critic", type=str2bool, required=False)
     parser.add_argument("--tokenizer_path", type=str, required=True)
     parser.add_argument("--state_dict_path", type=str, default=None)
     parser.add_argument("--save_dir", type=str, required=True)
@@ -236,9 +248,10 @@ if __name__ == "__main__":
         test_ds = train_ds
 
     device = torch.device(f"cuda:{local_rank}")
-
-    if use_llm_self_eval:
-        tokenizer = AutoTokenizer.from_pretrained(config.tokenizer_path)
+    tokenizer = AutoTokenizer.from_pretrained(config.tokenizer_path)
+    if config.zero_critic:
+        policy_forward_value = zero_critic()
+    elif use_llm_self_eval:
         critic, _ = load_ct2_model(
             config.critic_model_path,
             device="cuda",
@@ -247,15 +260,10 @@ if __name__ == "__main__":
         )
         policy_forward_value = partial(tot_value_fn, critic, tokenizer, config.env_name)
     else:
-        tokenizer = AutoTokenizer.from_pretrained(config.tokenizer_path)
         critic = load_critic_model(
             config.critic_model_path, config.state_dict_path, device
         )
         policy_forward_value = partial(value_fn, critic, tokenizer)
-
-    # # fake value
-    # def policy_forward_value(x):
-    #     return np.array([0.0] * len(x))
 
     ############ CONVERT MODEL to CT2 files ###################
     ct2_generator, ct2_sp = load_ct2_model(

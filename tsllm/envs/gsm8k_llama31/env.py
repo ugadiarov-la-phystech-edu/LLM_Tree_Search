@@ -46,6 +46,17 @@ def judge_correct(problem_str: str, extracted_groundtruth: Optional[str], answer
 class Gsm8kEnv(CoTEnv):
     sep = SEP
 
+    @staticmethod
+    def build_query_str(
+        cot_task_desc: Optional[str],
+        cot_examples: Optional[str],
+        problem_format_str: str,
+        problem_input: str,
+        sep: str,
+        is_few_shot: bool = False,
+    ):
+        return problem_format_str.format(question=problem_input)
+
     def __init__(
         self,
         config,
@@ -58,7 +69,6 @@ class Gsm8kEnv(CoTEnv):
         reset=True,
         action_distribution_temperature=1.0,
     ):
-        self.sep_token_id = tokenizer.encode(self.sep, add_special_tokens=False)[0]
         super().__init__(
             config,
             math_problems,
@@ -84,16 +94,17 @@ class Gsm8kEnv(CoTEnv):
             self.math_problem["question"], self.math_problem["answer"], extracted_answer
         )
 
+    def init_action_history(self):
+        question = self.math_problem['question']
+        return [self.build_query_str(cot_task_desc=None, cot_examples=None, problem_format_str=self._problem_format_str,
+                                    problem_input=question, sep=None)]
+
     def get_state(self):
         state = self.action_history[0]
         if len(self.action_history) > 1:
             state += self.sep.join(self.action_history[1:]) + self.sep
 
         return state
-
-    def init_action_history(self):
-        # add the first prompted questions
-        return [self._problem_format_str.format(question=self.math_problem['question'])]
 
     def update_legal_actions(self):
         def reduce_prob_list(prob_list: List[List]) -> List:
@@ -105,15 +116,13 @@ class Gsm8kEnv(CoTEnv):
         prefix = (
             (self.action_history[0] + "\n") if self.task_prefix is not None else None
         )
-        assert self.task_prefix is None
-        assert prefix is None
         act_hist_start_i = 0 if self.task_prefix is None else 1
         unprefixed_state = self.get_state()
         texts, logps = self.llm_gen_fn(
             static_prompt=prefix,
             prompt=unprefixed_state,
             num_sequence=self.config["max_actions"],
-            stop=[self.sep_token_id, self.tokenizer.eos_token_id],
+            stop=[627, self.tokenizer.eos_token_id],
             **self.config["generation_config"],
         )
 
@@ -145,6 +154,10 @@ class Gsm8kEnv(CoTEnv):
 
         return _legal_actions
 
+    def get_reward(self):
+        """To implement based on learned reward model"""
+        return 0
+
     @property
     def question(self):
         return self.action_history[0]
@@ -152,30 +165,3 @@ class Gsm8kEnv(CoTEnv):
     @property
     def answer(self):
         return self.sep.join(self.action_history[1:]) + self.sep
-
-    def get_done_and_info(self):
-        info = {"winner": 0}
-        # done when reaches maximum length or LLM generates stop words
-        terminated = len(self.action_history) > 1 and self.stop_str in self.action_history[-1]
-
-        truncated = len(self.action_history) >= self.config["max_length"] + (
-            2 if self.task_prefix is not None else 1
-        )
-        assert len(self.action_history) <= self.config["max_length"] + (
-            2 if self.task_prefix is not None else 1
-        ), "action history length: {}, max length: {}".format(
-            len(self.action_history),
-            self.config["max_length"] + (2 if self.task_prefix is not None else 1),
-        )
-
-        if terminated or truncated:
-            if self._is_correct(self.action_history[-1]):
-                info["winner"] = 1
-            else:
-                info["winner"] = 2
-            return terminated, truncated, info
-        return terminated, truncated, info
-
-    def get_reward(self):
-        """To implement based on learned reward model"""
-        return 0
