@@ -123,6 +123,7 @@ class Gsm8kEnv(CoTEnv):
             prompt=unprefixed_state,
             num_sequence=self.config["max_actions"],
             stop=[627, self.tokenizer.eos_token_id],
+            add_special_tokens=False,
             **self.config["generation_config"],
         )
 

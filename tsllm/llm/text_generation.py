@@ -5,18 +5,19 @@ import torch
 
 
 def llm_gen_ct2(
-    generator, tokenizer, static_prompt, prompt, num_sequence, stop, return_num_tokens=False, **generation_config
+    generator, tokenizer, static_prompt, prompt, num_sequence, stop, return_num_tokens=False, add_special_tokens=True,
+        **generation_config
 ):
-    prompt_tokens = tokenizer.convert_ids_to_tokens(
-        tokenizer.encode(prompt, add_special_tokens=False)
-    )
     if static_prompt is not None:
         static_prompt_tokens = tokenizer.convert_ids_to_tokens(
-            tokenizer.encode(static_prompt)
+            tokenizer.encode(static_prompt, add_special_tokens=add_special_tokens)
+        )
+        prompt_tokens = tokenizer.convert_ids_to_tokens(
+            tokenizer.encode(prompt, add_special_tokens=False)
         )
     else:
         static_prompt_tokens = None
-        prompt_tokens = tokenizer.convert_ids_to_tokens(tokenizer.encode(prompt))
+        prompt_tokens = tokenizer.convert_ids_to_tokens(tokenizer.encode(prompt, add_special_tokens=add_special_tokens))
 
     if isinstance(stop, int):
         stop = [stop]
