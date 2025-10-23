@@ -94,6 +94,7 @@ class Gsm8kEnv(CoTEnv):
             logprobs=1,
         )
         self._stop_token_ids = set(stop_token_ids)
+        self._use_mean_logprob = generation_config["use_mean_logprob"]
 
         super().__init__(
             config,
@@ -140,14 +141,16 @@ class Gsm8kEnv(CoTEnv):
         logprobs = []
         for completion_output in outputs:
             token_ids = completion_output.token_ids
-            # return completions without stop tokens
-            stop_token_logprob = 0
+            length = len(token_ids)
+            # return completions without stop tokens, but still they count in log probs
             if token_ids[-1] in self._stop_token_ids:
                 token_ids = token_ids[:-1]
-                stop_token_logprob = list(completion_output.logprobs[-1].values())[0].logprob
 
             text = self.tokenizer.batch_decode([token_ids], skip_special_tokens=False)[0]
-            logprob = completion_output.cumulative_logprob - stop_token_logprob
+            logprob = completion_output.cumulative_logprob
+            if self._use_mean_logprob:
+                logprob /= length
+
             texts.append(text)
             logprobs.append(logprob)
 

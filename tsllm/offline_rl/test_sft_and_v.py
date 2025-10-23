@@ -120,6 +120,7 @@ class SearchArgs:
     action_distribution_temperature: float = 1.0
     # COT-SC number
     k_maj: int = 100
+    use_mean_logprob: bool = True
 
     # MCTS aggregation number
     num_mcts_aggregation: int = 5
@@ -195,6 +196,7 @@ if __name__ == "__main__":
     parser.add_argument("--action_distribution_temperature", type=float, default=1.0)
     parser.add_argument("--max_new_tokens", type=int, default=64)
     parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--use_mean_logprob", type=str2bool, default=True)
     config = parser.parse_args()
 
     # RANDOM_SEEDS = [x * 10009 + 7 for x in [0, 1, 2]]
@@ -204,6 +206,7 @@ if __name__ == "__main__":
             "action_distribution_temperature": config.action_distribution_temperature,
             "max_length": config.tree_max_length,
             "max_action": config.tree_max_actions,
+            "use_mean_logprob": config.use_mean_logprob,
             "pb_c_init": 3,
             "num_simulations": config.num_simulations,
             "k_maj": 10,
@@ -378,6 +381,7 @@ if __name__ == "__main__":
                     "return_dict_in_generate": True,
                     "output_scores": True,
                     "use_cache": True,
+                    "use_mean_logprob": args.use_mean_logprob,
                 },
             },
             math_problems=[
