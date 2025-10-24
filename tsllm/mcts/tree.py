@@ -307,6 +307,7 @@ class MCTS(object):
 
         self.non_root_child_selection_mode = self._cfg.get("non_root_child_selection_mode", "ucb")
         self.self_certainty_coef = self._cfg["self_certainty_coef"]
+        self.self_certainty_mode = self._cfg["self_certainty_mode"]
 
     @property
     def num_generated_token(self):
@@ -1132,11 +1133,22 @@ class MCTS(object):
         assert len(probs) > 0, f'The expanded node does not have actions. Legal actions:\n{simulate_env.legal_actions}'
         if len(probs) == 1:
             node._initial_value = 1
-        else:
+        elif self.self_certainty_mode == 'reversed':
             probs = np.array(probs)
             entropy = -np.sum(np.log(probs[probs > 0]) * probs[probs > 0])
             node._initial_value = 1 - entropy / np.log(len(probs))
             assert node._initial_value >= 0, node._initial_value
+        elif self.self_certainty_mode == 'direct':
+            probs = np.array(probs)
+            assert np.all(probs).item() >= 0
+            log_probs = np.log(probs)
+            assert not np.any(np.isnan(log_probs))
+            active_action_mask = ~np.isinf(log_probs)
+            active_log_probs = log_probs[active_action_mask]
+            assert active_log_probs.shape[0] > 0
+            node._initial_value = -active_log_probs.mean() - np.log(active_log_probs.shape[0])
+        else:
+            raise ValueError(f'Invalid self_certainty_mode={self.self_certainty_mode}')
 
         node._initial_value *= self.self_certainty_coef
 

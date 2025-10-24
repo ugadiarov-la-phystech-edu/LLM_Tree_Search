@@ -109,6 +109,7 @@ class SearchArgs:
     # COT-SC number
     k_maj: int = 100
     max_new_tokens: int = 64
+    use_mean_logprob: bool = True
     reasoning_effort: str = 'medium'
 
     # MCTS aggregation number
@@ -155,6 +156,7 @@ class SearchArgs:
     seed: int = 7
 
     self_certainty_coef: float = 1
+    self_certainty_mode: str = 'reversed'
 
 
 if __name__ == "__main__":
@@ -186,9 +188,11 @@ if __name__ == "__main__":
     parser.add_argument("--reasoning_effort", type=str, choices=['low', 'medium', 'high'], default='medium')
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--self_certainty_coef", type=float, default=1)
+    parser.add_argument("--self_certainty_mode", type=str, choices=['reversed', 'direct'], default="reversed")
     parser.add_argument("--top_p", type=float, default=1)
     parser.add_argument("--top_k", type=int, default=100)
     parser.add_argument("--max_model_len", type=int, default=9192)
+    parser.add_argument("--use_mean_logprob", type=str2bool, default=True)
     config = parser.parse_args()
 
     # RANDOM_SEEDS = [x * 10009 + 7 for x in [0, 1, 2]]
@@ -202,6 +206,7 @@ if __name__ == "__main__":
             "reasoning_effort": config.reasoning_effort,
             "max_length": config.tree_max_length,
             "max_action": config.tree_max_actions,
+            "use_mean_logprob": config.use_mean_logprob,
             "pb_c_init": 3,
             "num_simulations": config.num_simulations,
             "k_maj": 10,
@@ -221,6 +226,7 @@ if __name__ == "__main__":
             "clear_subtrees": config.clear_subtrees,
             "non_root_child_selection_mode": config.non_root_child_selection_mode,
             "self_certainty_coef": config.self_certainty_coef,
+            "self_certainty_mode": config.self_certainty_mode,
         },
     ]
 
@@ -361,6 +367,7 @@ if __name__ == "__main__":
                     "return_dict_in_generate": True,
                     "output_scores": True,
                     "use_cache": True,
+                    "use_mean_logprob": args.use_mean_logprob,
                 },
             },
             math_problems=[
@@ -386,6 +393,7 @@ if __name__ == "__main__":
             "sequential_halving_start_nodes": args.sequential_halving_start_nodes,
             "non_root_child_selection_mode": args.non_root_child_selection_mode,
             "self_certainty_coef": args.self_certainty_coef,
+            "self_certainty_mode": args.self_certainty_mode,
         }
         if tree_path and tree_path.exists():
             mcts = MCTS.from_json(cfg, tree_path, reset_visit_info=True)
