@@ -233,6 +233,7 @@ class CoTEnv(BaseEnv):
             n=self.config["max_actions"],
             logprobs=1,
         )
+        self._use_mean_logprob = generation_config['use_mean_logprob']
 
         if reset:
             self.reset(update_legal_action=True)
@@ -289,6 +290,9 @@ class CoTEnv(BaseEnv):
         for completion_output in outputs:
             text = self.tokenizer.batch_decode([completion_output.token_ids], skip_special_tokens=False)[0]
             logprob = completion_output.cumulative_logprob
+            if self._use_mean_logprob:
+                logprob /= len(completion_output.token_ids)
+
             texts.append(text)
             logprobs.append(logprob)
 
