@@ -9,7 +9,7 @@ from tsllm.distributed.utils import (
     gather_scalar,
 )
 from tsllm.envs import get_env_datasets, get_default_query_str_builder
-from tsllm.inference.trajectory_collector import _mcts_rollout_v1, _mcts_gumbel
+from tsllm.inference.trajectory_collector import _mcts_rollout_v1, _mcts_gumbel, _mcts_rollout_v1_self_certainty
 from tsllm.inference.value import value_fn
 from tsllm.inference.lm_self_value import tot_value_fn
 from tsllm.llm.ct2_utils import load_ct2_model
@@ -438,6 +438,24 @@ if __name__ == "__main__":
                     # add a .strip() in case mistakes happens when copy this line to other place
                     [prompt + txt.strip() + task_module.SEP for txt in texts]
                 ).tolist()
+            else:
+                value_list = []
+            for o, v in zip(output_list, value_list):
+                o["value"] = v
+
+        elif args.rollout_method == "mcts.get_next_action_self_certainty":
+            output_list = _mcts_rollout_v1_self_certainty(
+                mcts,
+                env,
+                args.num_mcts_aggregation,
+                args.reset_total_tree,
+                sample=args.mcts_sample,
+                clear_total_tree=args.clear_tree,
+            )
+            prompt = prompt_fn(problem[task_module.QUESTION_KEY])
+            texts = [o["text"] for o in output_list]
+            if len(texts) > 0:
+                value_list = [0] * len(texts)
             else:
                 value_list = []
             for o, v in zip(output_list, value_list):

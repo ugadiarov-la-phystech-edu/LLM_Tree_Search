@@ -107,50 +107,47 @@ class Gsm8kEnv(CoTEnv):
         return state
 
     def update_legal_actions(self):
-        def reduce_prob_list(prob_list: List[List]) -> List:
-            ans_list = []
-            for scores in prob_list:
-                ans_list.append(np.exp(np.mean(scores)) / self.action_distribution_temperature)
-            return ans_list
-
         prefix = (
             (self.action_history[0] + "\n") if self.task_prefix is not None else None
         )
         act_hist_start_i = 0 if self.task_prefix is None else 1
         unprefixed_state = self.get_state()
-        texts, logps = self.llm_gen_fn(
+        texts, logps, num_tokens, self_certainty_scores = self.llm_gen_fn(
             static_prompt=prefix,
             prompt=unprefixed_state,
             num_sequence=self.config["max_actions"],
             stop=[627, self.tokenizer.eos_token_id],
             add_special_tokens=False,
+            return_self_certainty_scores=True,
+            return_num_tokens=True,
             **self.config["generation_config"],
         )
 
-        text_list, prob_list = [], []
+        text_list = []
+        valid_indices = []
         for i in range(len(texts)):
             if len(texts[i]) > 0 and texts[i] not in text_list:
                 text_list.append(texts[i])
-                prob_list.append(logps[i])
+                valid_indices.append(i)
 
-        if len(prob_list) == 0:
+        if len(text_list) == 0:
             print_with_rank(
                 "{} {} {}".format(prefix, act_hist_start_i, unprefixed_state)
             )
             raise NoLegalActionException("No possible action have been generated.")
 
-        prob_list = reduce_prob_list(prob_list)
-        prob_list = np.array(prob_list)
-        # normalize probability
-        prob_list = prob_list / np.sum(prob_list)
-        # set add special tokens as False to remove bos/eos tokens
-        num_token_list = [
-            len(self.tokenizer.encode(txt, add_special_tokens=False))
-            for txt in text_list
-        ]
+        logps = np.array([logps[i] for i in valid_indices])
+        num_tokens = np.array([num_tokens[i] for i in valid_indices])
+        self_certainty_scores = np.array([self_certainty_scores[i] for i in valid_indices])
+        if self.config["generation_config"]["use_mean_logprob"]:
+            logps /= num_tokens
+
+        probs = np.exp(logps - logps.max())
+        probs /= probs.sum()
+
         _legal_actions = [
-            {"action": action, "prob": prob, "num_token": n_token}
-            for action, prob, n_token in zip(text_list, prob_list, num_token_list)
+            {"action": action, "prob": prob, "num_token": n_token, "self_certainty_score": self_certainty_score}
+            for action, prob, n_token, self_certainty_score in zip(text_list, probs, num_tokens, self_certainty_scores)
         ]
 
         return _legal_actions

@@ -67,6 +67,64 @@ def _mcts_rollout_v1(
 
     return output_episodes
 
+def _mcts_rollout_v1_self_certainty(
+    mcts: MCTS,
+    env: CoTEnv,
+    n_rollout: int,
+    reset_total_tree: bool,
+    sample: bool,
+    clear_total_tree: bool,
+):
+    """MCTS.GET_NEXT_ACTION"""
+    output_episodes = []
+    env.reset(True)
+    mcts.root = None
+    done = False
+    for i in range(n_rollout):
+        while not done:
+            action, _, current_node = mcts.get_next_action_self_certainty(
+                env,
+                sample=sample,
+                return_tree=True,
+            )
+            mcts.root = current_node.children[action]
+            next_state, reward, terminated, truncated, info = env.step(
+                action, update_legal_action=len(mcts.root.children) == 0
+            )
+            done = terminated or truncated
+
+            if not done and len(mcts.root.children) > 0:
+                env._legal_actions = [
+                    {"action": a, "prob": None} for a in mcts.root.children.keys()
+                ]
+
+        num_generated_token = mcts.num_generated_token
+
+        traj_data = {
+            "path_idx": i,
+            "text": env.answer.strip(),  # drop the last "\n"
+            "value": mcts.root.value,
+            "num_generated_token": num_generated_token,
+        }
+        output_episodes.append(traj_data)
+
+        assert not (reset_total_tree and clear_total_tree)  # cannot be both true
+        if reset_total_tree:
+            if i < n_rollout - 1:
+                mcts.root = None
+                env.reset(update_legal_action=True)
+        else:
+            mcts.root = get_root(current_node)
+            if clear_total_tree:
+                mcts.clear_node(mcts.root)
+            env.reset(update_legal_action=False)
+            env._legal_actions = [
+                {"action": a, "prob": None} for a in mcts.root.children.keys()
+            ]
+        done = False
+
+    return output_episodes
+
 
 def _mcts_rollout_v2(
     mcts: MCTS,

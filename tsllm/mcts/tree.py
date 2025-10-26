@@ -48,6 +48,10 @@ class Node(object):
         self._terminated = True
 
     @property
+    def initial_value(self):
+        return self._initial_value
+
+    @property
     def true_value(self):
         if self._visit_count == 0:
             return -math.inf
@@ -167,6 +171,7 @@ class LanguageNode(Node):
         last_action: Optional[str] = None,
         initial_value: float = 0.0,
         num_generated_token: Optional[int] = None,
+        num_generated_token_cumulative: int = 0,
     ) -> None:
         super().__init__(parent, prior_p, initial_value)
         self.text_state = text_state
@@ -175,6 +180,11 @@ class LanguageNode(Node):
 
         self.num_generated_token = num_generated_token
         self.has_collected_token_num = False
+        self._num_generated_token_cumulative = num_generated_token_cumulative
+
+    @property
+    def num_generated_token_cumulative(self) -> Optional[int]:
+        return self._num_generated_token_cumulative
 
     def get_path(self):
         ans = []
@@ -434,6 +444,65 @@ class MCTS(object):
             simulate_env_copy = simulate_env.copy()
             simulate_env_copy.battle_mode = simulate_env_copy.mcts_mode
             self._simulate(root, simulate_env_copy, policy_forward_fn)
+
+        # for debugging
+        # print('after simulation')
+        # print('value= {}'.format([(k, v.value) for k,v in root.children.items()]))
+        # print('visit_count= {}'.format([(k, v.visit_count) for k,v in root.children.items()]))
+
+        if self._final_action_strategy == "visits":
+            action, action_probs = self.get_final_action_by_visits(temperature, sample, root, simulate_env)
+        elif self._final_action_strategy == "expected_value":
+            action, action_probs = self.get_final_action_by_expected_value(temperature, sample, root, simulate_env)
+        elif self._final_action_strategy == "max_value":
+            action, action_probs = self.get_final_action_by_max_value(temperature, sample, root, simulate_env)
+        else:
+            assert False, f'Unexpected final action strategy: {self._final_action_strategy}'
+
+        self.root = root
+        if return_tree:
+            return action, action_probs, root
+        return action, action_probs
+
+    def get_next_action_self_certainty(
+        self,
+        simulate_env: Type[CoTEnv],
+        temperature: int = 1.0,
+        sample: bool = True,
+        return_tree=False,
+    ) -> Tuple[int, List[float]]:
+        """
+        Overview:
+            calculate the move probabilities based on visit counts at the root node.
+        Arguments:
+            - simulate_env (:obj:`Class BaseGameEnv`): The class of simulate env.
+            - policy_forward_fn (:obj:`Function`): The Callable to compute the action probs and state value.
+            - temperature (:obj:`Int`): Temperature is a parameter that controls the "softness" of the probability distribution.
+            - sample (:obj:`Bool`): The value of the node.
+        Returns:
+            - action (:obj:`Bool`): Select the action with the most visits as the final action.
+            - action_probs (:obj:`List`): The output probability of each action.
+        """
+        if self.root is None:
+            root = LanguageNode(text_state=simulate_env.get_state())
+            self._expand_leaf_node_self_certainty(root, simulate_env)
+            self.root = root
+        else:
+            root = self.root
+
+        if root.is_leaf():
+            # if root is leaf node, expand it
+            # We have updated the environment legal action when we test the node is leaf node
+            # So the expansion won't have bugs
+            self._expand_leaf_node_self_certainty(root, simulate_env)
+
+        if sample:
+            self._add_exploration_noise(root)
+
+        for n in range(self._num_simulations):
+            simulate_env_copy = simulate_env.copy()
+            simulate_env_copy.battle_mode = simulate_env_copy.mcts_mode
+            self._simulate_self_certainty(root, simulate_env_copy)
 
         # for debugging
         # print('after simulation')
@@ -1014,6 +1083,141 @@ class MCTS(object):
             # thus we add the negative when call update_recursive().
             node.update_recursive(-leaf_value, simulate_env.mcts_mode, node.max_value)
 
+    def _simulate_self_certainty(
+        self,
+        node: Node,
+        simulate_env: Type[CoTEnv],
+        first_action=None,
+    ) -> None:
+        """
+        Overview:
+            Run a single playout from the root to the leaf, getting a value at the leaf and propagating it back through its parents.
+            State is modified in-place, so a deepcopy must be provided.
+        Arguments:
+            - node (:obj:`Class Node`): Current node when performing mcts search.
+            - simulate_env (:obj:`Class BaseGameEnv`): The class of simulate env.
+            - policy_forward_fn (:obj:`Function`): The Callable to compute the action probs and state value.
+        """
+        # XXX: fix the bug temporally, better implementation is required.
+        assert self._init_critic_value
+
+        winner = None
+        done = False
+        while not node.is_leaf():
+            if first_action is None:
+                if self.non_root_child_selection_mode == 'ucb':
+                    action, node = self._select_child(node, simulate_env)
+                elif self.non_root_child_selection_mode == 'gumbel':
+                    action, node = self._select_child_gumbel(node, simulate_env)
+                else:
+                    assert False, f'Unexpected non_root_child_selection_mode={self.non_root_child_selection_mode}'
+            else:
+                if not node.has_collected_token_num:
+                    self._num_generated_token += sum(
+                        c.num_generated_token for c in node.children.values()
+                    )
+                    node.has_collected_token_num = True
+
+                node = node.children[first_action]
+                action = first_action
+                first_action = None
+
+            _, _, terminated, truncated, info = simulate_env.step(
+                action, update_legal_action=(node.is_leaf() and node.visit_count == 1)
+            )
+            done = terminated or truncated
+
+            # In original AlphaZero, the leaf node will be expanded once it is reached
+            # In our setting, computing legal action is computational inefficient
+            # Thus when we reach a leaf node, we will not directly expand it
+            # Until the next time, when this node's children are required to be selected
+            # In this case, node is leaf node and the visit count number of node is 1
+            # Then we expand it
+
+            if not done and node.is_leaf() and node.visit_count == 1:
+                # Once we expand the node, the node will not be leaf node any more
+                # And the while won't break
+                self._expand_leaf_node_self_certainty(node, simulate_env)
+
+            winner = info["winner"]
+        """
+        in ``self_play_mode``, the leaf_value is calculated from the perspective of player ``simulate_env.current_player``.
+        in ``play_with_bot_mode``, the leaf_value is calculated from the perspective of player 1.
+        """
+        if not done:
+            # leaf_value = self._expand_leaf_node(node, simulate_env,
+            #                                     policy_forward_fn)
+
+            if not done and self.mask_non_terminal_node_value:
+                leaf_value = 0.0
+            else:
+                if not self._init_critic_value:
+                    assert self._init_critic_value, 'Is not implemented yet'
+                    # leaf_value = policy_forward_fn(simulate_env.get_state()).item()
+                else:
+                    leaf_value = node._initial_value
+        else:
+            if not self.no_terminal_reward:
+                if winner is not None:
+                    if winner == 1:
+                        self.answers.add(simulate_env.answer)
+                    else:
+                        self.wrong_answers.add(simulate_env.answer)
+
+                # if simulate_env.mcts_mode == 'self_play_mode':
+                #     if winner == -1:
+                #         leaf_value = 0
+                #     else:
+                #         leaf_value = 1 if simulate_env.current_player == winner else -1
+
+                if simulate_env.mcts_mode == "play_with_bot_mode":
+                    # in ``play_with_bot_mode``, the leaf_value should be transformed to the perspective of player 1.
+                    if "reward" in info.keys():
+                        leaf_value = info["reward"]
+                    else:
+                        if winner == -1:
+                            leaf_value = 0
+                        elif winner == 1:
+                            leaf_value = 1
+                        elif winner == 2:
+                            leaf_value = -1
+            else:
+                if node.visit_count > 0:
+                    # because leaf value has been calculated and backpropogated
+                    leaf_value = node.value
+                else:
+                    if self._init_critic_value:
+                        leaf_value = node._initial_value
+                    else:
+                        assert self._init_critic_value, 'Is not implemented yet'
+                        # leaf_value = policy_forward_fn(simulate_env.get_state()).item()
+
+        if done:
+            node.set_as_terminate_node()
+            if self.visited_paths is not None:
+                self.visited_paths.append(
+                    {
+                        "text": simulate_env.answer,
+                        "correct": winner == 1,
+                        "value": leaf_value,
+                    }
+                )
+
+        # Update value and visit count of nodes in this traversal.
+        if simulate_env.mcts_mode == "play_with_bot_mode":
+            node.update_recursive(leaf_value, simulate_env.mcts_mode, node.max_value)
+
+        elif simulate_env.mcts_mode == "self_play_mode":
+            # NOTE: e.g.
+            #       to_play: 1  ---------->  2  ---------->  1  ----------> 2
+            #         state: s1 ---------->  s2 ---------->  s3 ----------> s4
+            #                                     action    node
+            #                                            leaf_value
+            # leaf_value is calculated from the perspective of player 1, leaf_value = value_func(s3),
+            # but node.value should be the value of E[q(s2, action)], i.e. calculated from the perspective of player 2.
+            # thus we add the negative when call update_recursive().
+            node.update_recursive(-leaf_value, simulate_env.mcts_mode, node.max_value)
+
     def _select_child_gumbel(self, node: GumbelNode, simulate_env: Type[CoTEnv]):
         improved_policy = self.get_improved_policy(node)
         action_id = np.argmax(improved_policy - node.get_altered_visit_count_distribution_tensor())
@@ -1192,6 +1396,65 @@ class MCTS(object):
                 initial_value=child_value,
                 num_generated_token=action_dict["num_token"],
             )
+        if len(node.children) == 0:
+            print_rank_0(
+                "Prune all current children at node {}".format(node.last_action)
+            )
+
+        return leaf_value
+
+    def _expand_leaf_node_self_certainty(
+        self,
+        node: LanguageNode,
+        simulate_env: Type[CoTEnv],
+    ) -> float:
+        """
+        Overview:
+            expand the node with the policy_forward_fn.
+        Arguments:
+            - node (:obj:`Class Node`): current node when performing mcts search.
+            - simulate_env (:obj:`Class BaseGameEnv`): the class of simulate env.
+        Returns:
+            - leaf_value (:obj:`Bool`): the leaf node's value.
+        """
+        assert self._init_critic_value
+        leaf_value = node._initial_value
+        assert len(simulate_env.legal_actions) > 0
+        child_values = []
+        child_num_generated_token_cumulative = []
+        for legal_action in simulate_env.legal_actions:
+            child_self_certainty = legal_action["self_certainty_score"]
+            child_num_token = legal_action["num_token"]
+            value = (node.initial_value * node.num_generated_token_cumulative + child_self_certainty * child_num_token) \
+                    / (node.num_generated_token_cumulative + child_num_token)
+            child_values.append(value)
+            child_num_generated_token_cumulative.append(child_num_token + node.num_generated_token_cumulative)
+
+        child_values = np.array(child_values)
+        if len(child_values) == 1:
+            child_values[0] = 0
+        else:
+            child_values = (child_values - child_values.mean()) / np.std(child_values, ddof=1)
+
+        assert len(node.children) == 0
+        for i, action_dict in enumerate(simulate_env.legal_actions):
+            action, prob = action_dict["action"], action_dict["prob"]
+            if self._init_critic_value:
+                child_value = child_values[i]
+            else:
+                child_value = 0.0
+
+            node.children[action] = LanguageNode(
+                parent=node,
+                prior_p=prob,
+                #  prm_value=prm_value,
+                text_state=simulate_env.get_state(),
+                last_action=action,
+                initial_value=child_value,
+                num_generated_token=action_dict["num_token"],
+                num_generated_token_cumulative=child_num_generated_token_cumulative[i],
+            )
+
         if len(node.children) == 0:
             print_rank_0(
                 "Prune all current children at node {}".format(node.last_action)

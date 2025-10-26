@@ -6,7 +6,7 @@ import torch
 
 def llm_gen_ct2(
     generator, tokenizer, static_prompt, prompt, num_sequence, stop, return_num_tokens=False, add_special_tokens=True,
-        **generation_config
+        return_self_certainty_scores=False, **generation_config
 ):
     if static_prompt is not None:
         static_prompt_tokens = tokenizer.convert_ids_to_tokens(
@@ -26,6 +26,7 @@ def llm_gen_ct2(
     texts = []
     logps = []
     num_tokens = []
+    self_certainty_scores = []
     for batch_id in range(n_batches):
         batch_num_sequence = generation_batch_size
         if batch_id == n_batches - 1:
@@ -38,26 +39,39 @@ def llm_gen_ct2(
             sampling_topk=generation_config.get("top_k", 1),
             max_length=generation_config.get("max_new_tokens", 16),
             return_scores=True,
+            return_logits_vocab=True,
             include_prompt_in_result=False,
             end_token=stop,
             static_prompt=static_prompt_tokens,
             max_batch_size=generation_config.get("max_batch_size", 0),
             num_hypotheses=batch_num_sequence,
+            length_penalty=0,
         )
 
         results = list(step_results)
         for seq in results[0].sequences_ids:
             texts.append(tokenizer.decode(seq))
-            num_tokens.append(len(seq))
+
+            # +1 as ctranslate2 does not include stop token into sequence
+            num_tokens.append(len(seq) + 1)
 
         for logp in results[0].scores:
             logps.append(logp)
+
+        for logits in results[0].logits:
+            logits = torch.stack([torch.as_tensor(step_logits) for step_logits in logits])
+            self_certainty_score = torch.logsumexp(logits, dim=-1).mean() - logits.mean()
+            assert self_certainty_score.isfinite().item()
+            self_certainty_scores.append(self_certainty_score.item())
 
     assert len(texts) == num_sequence
 
     result = [texts, logps]
     if return_num_tokens:
         result.append(num_tokens)
+
+    if return_self_certainty_scores:
+        result.append(self_certainty_scores)
 
     return result
 
