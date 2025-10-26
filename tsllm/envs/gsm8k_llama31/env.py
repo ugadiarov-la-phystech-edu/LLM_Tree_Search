@@ -142,6 +142,7 @@ class Gsm8kEnv(CoTEnv):
         if self.config["generation_config"]["use_mean_logprob"]:
             logps /= num_tokens
 
+        logps /= self.action_distribution_temperature
         probs = np.exp(logps - logps.max())
         probs /= probs.sum()
 
