@@ -2,6 +2,7 @@ import math
 
 import requests
 import torch
+import numpy as np
 
 
 def llm_gen_ct2(
@@ -59,7 +60,7 @@ def llm_gen_ct2(
             logps.append(logp)
 
         for logits in results[0].logits:
-            logits = torch.stack([torch.as_tensor(step_logits, dtype=torch.float32) for step_logits in logits])
+            logits = torch.stack([torch.as_tensor(np.asarray(step_logits)) for step_logits in logits])
             self_certainty_score = torch.logsumexp(logits, dim=-1).mean() - logits.mean()
             assert self_certainty_score.isfinite().item()
             self_certainty_scores.append(self_certainty_score.item())
