@@ -1450,7 +1450,7 @@ class MCTS(object):
                 #  prm_value=prm_value,
                 text_state=simulate_env.get_state(),
                 last_action=action,
-                initial_value=child_value,
+                initial_value=float(child_value),
                 num_generated_token=action_dict["num_token"],
                 num_generated_token_cumulative=child_num_generated_token_cumulative[i],
             )

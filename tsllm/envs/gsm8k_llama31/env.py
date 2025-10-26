@@ -147,7 +147,7 @@ class Gsm8kEnv(CoTEnv):
         probs /= probs.sum()
 
         _legal_actions = [
-            {"action": action, "prob": prob, "num_token": n_token, "self_certainty_score": self_certainty_score}
+            {"action": action, "prob": float(prob), "num_token": int(n_token), "self_certainty_score": float(self_certainty_score)}
             for action, prob, n_token, self_certainty_score in zip(text_list, probs, num_tokens, self_certainty_scores)
         ]
 
