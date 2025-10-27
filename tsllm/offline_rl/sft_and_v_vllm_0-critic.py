@@ -125,7 +125,7 @@ class SearchArgs:
     k_maj: int = 100
     max_new_tokens: int = 64
     reasoning_effort: str = 'medium'
-    use_mean_logprob: bool = True
+    # use_mean_logprob: bool = True
 
     # MCTS aggregation number
     num_mcts_aggregation: int = 5
@@ -203,7 +203,7 @@ if __name__ == "__main__":
     parser.add_argument("--top_p", type=float, default=1)
     parser.add_argument("--top_k", type=int, default=100)
     parser.add_argument("--max_model_len", type=int, default=9192)
-    parser.add_argument("--use_mean_logprob", type=str2bool, default=True)
+    # parser.add_argument("--use_mean_logprob", type=str2bool, default=True)
     config = parser.parse_args()
 
     # RANDOM_SEEDS = [x * 10009 + 7 for x in [0, 1, 2]]
@@ -217,7 +217,7 @@ if __name__ == "__main__":
             "reasoning_effort": config.reasoning_effort,
             "max_length": config.tree_max_length,
             "max_action": config.tree_max_actions,
-            "use_mean_logprob": config.use_mean_logprob,
+            # "use_mean_logprob": config.use_mean_logprob,
             "pb_c_init": 3,
             "num_simulations": config.num_simulations,
             "k_maj": 10,
@@ -376,7 +376,7 @@ if __name__ == "__main__":
                     "return_dict_in_generate": True,
                     "output_scores": True,
                     "use_cache": True,
-                    "use_mean_logprob": args.use_mean_logprob,
+                    # "use_mean_logprob": args.use_mean_logprob,
                 },
             },
             math_problems=[

@@ -46,7 +46,7 @@ def llm_gen_ct2(
             static_prompt=static_prompt_tokens,
             max_batch_size=generation_config.get("max_batch_size", 0),
             num_hypotheses=batch_num_sequence,
-            length_penalty=0,
+            length_penalty=1,
         )
 
         results = list(step_results)

@@ -139,8 +139,8 @@ class Gsm8kEnv(CoTEnv):
         logps = np.array([logps[i] for i in valid_indices])
         num_tokens = np.array([num_tokens[i] for i in valid_indices])
         self_certainty_scores = np.array([self_certainty_scores[i] for i in valid_indices])
-        if self.config["generation_config"]["use_mean_logprob"]:
-            logps /= num_tokens
+        # if self.config["generation_config"]["use_mean_logprob"]:
+        #     logps /= num_tokens
 
         logps /= self.action_distribution_temperature
         probs = np.exp(logps - logps.max())
