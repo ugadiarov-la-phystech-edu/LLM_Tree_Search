@@ -124,7 +124,7 @@ class Gsm8kEnv(CoTEnv):
             num_sequence=self.config["max_actions"],
             stop=[627, self.tokenizer.eos_token_id],
             add_special_tokens=False,
-            retrun_num_tokens=True,
+            return_num_tokens=True,
             **self.config["generation_config"],
         )
 
