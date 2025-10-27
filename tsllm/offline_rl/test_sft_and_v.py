@@ -121,6 +121,7 @@ class SearchArgs:
     # COT-SC number
     k_maj: int = 100
     # use_mean_logprob: bool = True
+    self_certainty_coef: float = 1.0
 
     # MCTS aggregation number
     num_mcts_aggregation: int = 5
@@ -197,6 +198,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_new_tokens", type=int, default=64)
     parser.add_argument("--seed", type=int, default=7)
     # parser.add_argument("--use_mean_logprob", type=str2bool, default=True)
+    parser.add_argument("--self_certainty_coef", type=float, default=1.0)
     config = parser.parse_args()
 
     # RANDOM_SEEDS = [x * 10009 + 7 for x in [0, 1, 2]]
@@ -207,6 +209,7 @@ if __name__ == "__main__":
             "max_length": config.tree_max_length,
             "max_action": config.tree_max_actions,
             # "use_mean_logprob": config.use_mean_logprob,
+            "self_certainty_coef": config.self_certainty_coef,
             "pb_c_init": 3,
             "num_simulations": config.num_simulations,
             "k_maj": 10,
@@ -405,6 +408,7 @@ if __name__ == "__main__":
             "final_action_strategy": args.final_action_strategy,
             "sequential_halving_start_nodes": args.sequential_halving_start_nodes,
             "non_root_child_selection_mode": args.non_root_child_selection_mode,
+            "self_certainty_coef": args.self_certainty_coef,
         }
         if tree_path and tree_path.exists():
             mcts = MCTS.from_json(cfg, tree_path, reset_visit_info=True)

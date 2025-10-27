@@ -316,6 +316,7 @@ class MCTS(object):
         self.gumbel_c_scale = self._cfg.get("gumbel_c_scale", 1)
 
         self.non_root_child_selection_mode = self._cfg.get("non_root_child_selection_mode", "ucb")
+        self.self_certainty_coef = self._cfg["self_certainty_coef"]
 
     @property
     def num_generated_token(self):
@@ -1436,6 +1437,7 @@ class MCTS(object):
         else:
             child_values = (child_values - child_values.mean()) / np.std(child_values, ddof=1)
 
+        child_values *= self.self_certainty_coef
         assert len(node.children) == 0
         for i, action_dict in enumerate(simulate_env.legal_actions):
             action, prob = action_dict["action"], action_dict["prob"]
