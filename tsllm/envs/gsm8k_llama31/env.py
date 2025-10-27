@@ -101,6 +101,10 @@ class Gsm8kEnv(CoTEnv):
 
     def get_state(self):
         state = self.action_history[0]
+        for action in self.action_history:
+            assert action is not None, f'{self.action_history}'
+            assert len(action) > 0, f'{self.action_history}'
+
         if len(self.action_history) > 1:
             state += self.sep.join(self.action_history[1:]) + self.sep
 
