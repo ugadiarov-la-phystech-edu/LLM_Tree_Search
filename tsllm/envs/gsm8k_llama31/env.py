@@ -118,12 +118,13 @@ class Gsm8kEnv(CoTEnv):
         )
         act_hist_start_i = 0 if self.task_prefix is None else 1
         unprefixed_state = self.get_state()
-        texts, logps = self.llm_gen_fn(
+        texts, logps, num_tokens = self.llm_gen_fn(
             static_prompt=prefix,
             prompt=unprefixed_state,
             num_sequence=self.config["max_actions"],
             stop=[627, self.tokenizer.eos_token_id],
             add_special_tokens=False,
+            retrun_num_tokens=True,
             **self.config["generation_config"],
         )
 
@@ -131,7 +132,11 @@ class Gsm8kEnv(CoTEnv):
         for i in range(len(texts)):
             if len(texts[i]) > 0 and texts[i] not in text_list:
                 text_list.append(texts[i])
-                prob_list.append(logps[i])
+                log_prob = logps[i]
+                if self.config["generation_config"]["use_mean_logprob"]:
+                    log_prob /= num_tokens[i]
+
+                prob_list.append(log_prob)
 
         if len(prob_list) == 0:
             print_with_rank(
