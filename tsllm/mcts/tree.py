@@ -317,6 +317,7 @@ class MCTS(object):
 
         self.non_root_child_selection_mode = self._cfg.get("non_root_child_selection_mode", "ucb")
         self.self_certainty_coef = self._cfg["self_certainty_coef"]
+        self.use_full_sentence_certainty = self._cfg["use_full_sentence_certainty"]
 
     @property
     def num_generated_token(self):
@@ -1426,8 +1427,12 @@ class MCTS(object):
         for legal_action in simulate_env.legal_actions:
             child_self_certainty = legal_action["self_certainty_score"]
             child_num_token = legal_action["num_token"]
-            value = (node.initial_value * node.num_generated_token_cumulative + child_self_certainty * child_num_token) \
-                    / (node.num_generated_token_cumulative + child_num_token)
+            if self.use_full_sentence_certainty:
+                value = (node.initial_value * node.num_generated_token_cumulative + child_self_certainty * child_num_token) \
+                        / (node.num_generated_token_cumulative + child_num_token)
+            else:
+                value = child_self_certainty
+
             child_values.append(value)
             child_num_generated_token_cumulative.append(child_num_token + node.num_generated_token_cumulative)
 
