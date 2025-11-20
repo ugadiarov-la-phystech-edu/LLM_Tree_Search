@@ -81,11 +81,11 @@ class Math500(CoTEnv):
         #  self.math_problem['answer']))
         # return extrated_answer == self.math_problem['answer']
         return judge_correct(
-            self.math_problem[QUESTION_KEY], self.math_problem["answer"], extracted_answer
+            self.math_problem["question"], self.math_problem["answer"], extracted_answer
         )
 
     def init_action_history(self):
-        question = self.math_problem[QUESTION_KEY]
+        question = self.math_problem["question"]
         return [self.build_query_str(cot_task_desc=None, cot_examples=None, problem_format_str=self._problem_format_str,
                                     problem_input=question, sep=None)]
 
