@@ -2,11 +2,12 @@ import copy
 import re
 from typing import List, Optional
 import numpy as np
+from math_verify import parse, verify
 from tsllm.envs.base_env import CoTEnv, NoLegalActionException, INVALID_ANS
 from .prompt import COT_EXAMPLES, COT_TASK_DESC, PROBLEM_FORMAT_STR, SEP
+from ...distributed.utils import print_with_rank
 
-WHITESPACE = re.compile(r"\s+")
-STOP_STR = "The answer is "
+STOP_STR = "The final answer is "
 QUESTION_KEY = "problem"
 
 
@@ -15,20 +16,36 @@ def extract_answer(completion):
     if len(substring) < 2:
         return INVALID_ANS
 
-    answer = WHITESPACE.sub("", substring[1])
+    answer = substring[1]
+    if len(answer) > 0 and answer[-1] == '.':
+        answer = answer[:-1]
+
     return answer
 
 
 def extract_groundtruth(groundtruth_str: str):
-    return WHITESPACE.sub("", groundtruth_str)
+    return groundtruth_str
 
 
 def judge_correct(problem_str: str, extracted_groundtruth: Optional[str], answer: str):
-    return answer == extracted_groundtruth
+    groundtruth = parse(extracted_groundtruth)
+    answer = parse(answer)
+    return verify(groundtruth, answer)
 
 
 class Math500(CoTEnv):
     sep = SEP
+
+    @staticmethod
+    def build_query_str(
+        cot_task_desc: Optional[str],
+        cot_examples: Optional[str],
+        problem_format_str: str,
+        problem_input: str,
+        sep: str,
+        is_few_shot: bool = False,
+    ):
+        return problem_format_str.format(question=problem_input)
 
     def __init__(
         self,
@@ -51,7 +68,7 @@ class Math500(CoTEnv):
             cot_example_str,
             problem_format_str,
             reset,
-            action_distribution_temperature,
+            action_distribution_temperature
         )
 
     @property
@@ -64,15 +81,80 @@ class Math500(CoTEnv):
         #  self.math_problem['answer']))
         # return extrated_answer == self.math_problem['answer']
         return judge_correct(
-            self.math_problem['question'], self.math_problem["answer"], extracted_answer
+            self.math_problem[QUESTION_KEY], self.math_problem["answer"], extracted_answer
         )
 
     def init_action_history(self):
-        # add the first prompted questions
-        return ([self.task_prefix] if self.task_prefix is not None else []) + [
-            f"Question: {self.math_problem['question']}\nAnswer: Let's think step by step"
+        question = self.math_problem[QUESTION_KEY]
+        return [self.build_query_str(cot_task_desc=None, cot_examples=None, problem_format_str=self._problem_format_str,
+                                    problem_input=question, sep=None)]
+
+    def get_state(self):
+        state = self.action_history[0]
+        for action in self.action_history:
+            assert action is not None, f'{self.action_history}'
+            assert len(action) > 0, f'{self.action_history}'
+
+        if len(self.action_history) > 1:
+            state += self.sep.join(self.action_history[1:]) + self.sep
+
+        return state
+
+    def update_legal_actions(self):
+        prefix = (
+            (self.action_history[0] + "\n") if self.task_prefix is not None else None
+        )
+        act_hist_start_i = 0 if self.task_prefix is None else 1
+        unprefixed_state = self.get_state()
+        texts, logps, num_tokens, self_certainty_scores = self.llm_gen_fn(
+            static_prompt=prefix,
+            prompt=unprefixed_state,
+            num_sequence=self.config["max_actions"],
+            stop=[627, self.tokenizer.eos_token_id],
+            add_special_tokens=False,
+            return_self_certainty_scores=True,
+            return_num_tokens=True,
+            **self.config["generation_config"],
+        )
+
+        text_list = []
+        valid_indices = []
+        for i in range(len(texts)):
+            if len(texts[i]) > 0 and texts[i] not in text_list:
+                text_list.append(texts[i])
+                valid_indices.append(i)
+
+        if len(text_list) == 0:
+            print_with_rank(
+                "{} {} {}".format(prefix, act_hist_start_i, unprefixed_state)
+            )
+            raise NoLegalActionException("No possible action have been generated.")
+
+        logps = np.array([logps[i] for i in valid_indices])
+        num_tokens = np.array([num_tokens[i] for i in valid_indices])
+        self_certainty_scores = np.array([self_certainty_scores[i] for i in valid_indices])
+        # if self.config["generation_config"]["use_mean_logprob"]:
+        #     logps /= num_tokens
+
+        logps /= self.action_distribution_temperature
+        probs = np.exp(logps - logps.max())
+        probs /= probs.sum()
+
+        _legal_actions = [
+            {"action": action, "prob": float(prob), "num_token": int(n_token), "self_certainty_score": float(self_certainty_score)}
+            for action, prob, n_token, self_certainty_score in zip(text_list, probs, num_tokens, self_certainty_scores)
         ]
+
+        return _legal_actions
 
     def get_reward(self):
         """To implement based on learned reward model"""
         return 0
+
+    @property
+    def question(self):
+        return self.action_history[0]
+
+    @property
+    def answer(self):
+        return self.sep.join(self.action_history[1:]) + self.sep
