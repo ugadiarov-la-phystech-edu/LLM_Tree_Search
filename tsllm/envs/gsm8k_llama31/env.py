@@ -2,8 +2,6 @@ import copy
 import re
 from typing import List, Optional
 import numpy as np
-
-from scripts.reg import group_select
 from tsllm.envs.base_env import CoTEnv, NoLegalActionException, INVALID_ANS
 from .prompt import COT_EXAMPLES, COT_TASK_DESC, PROBLEM_FORMAT_STR, SEP
 from ...distributed.utils import print_with_rank
