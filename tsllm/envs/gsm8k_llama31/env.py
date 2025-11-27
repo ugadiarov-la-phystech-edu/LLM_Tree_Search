@@ -26,7 +26,7 @@ def extract_answer(completion):
     else:
         match = INVALID_ANS
 
-    return match
+    return match.strip().replace('$', '').replace(',', '')
 
 
 def extract_groundtruth(groundtruth_str: str):
