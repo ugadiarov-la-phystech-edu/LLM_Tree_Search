@@ -6,31 +6,19 @@ from tsllm.envs.base_env import CoTEnv, NoLegalActionException, INVALID_ANS
 from .prompt import COT_EXAMPLES, COT_TASK_DESC, PROBLEM_FORMAT_STR, SEP
 from ...distributed.utils import print_with_rank
 
-ANS_RE = re.compile(r'The final answer is ((-?[$0-9.,]{2,})|(-?[0-9]+))')
+ANS_RE = re.compile(r"The final answer is (\-?[0-9\.\,]+)")
 STOP_STR = "The final answer is "
 QUESTION_KEY = "question"
 
 
 def extract_answer(completion):
-    match = ANS_RE.findall(completion)
-    group_select = -1
+    match = ANS_RE.search(completion)
     if match:
-        match = match[group_select]
-        if isinstance(match, tuple):
-            match = [m for m in match if m]
-            if match:
-                match = match[0]
-            else:
-                match = INVALID_ANS
-        match = match.strip()
+        match_str = match.group(1).strip()
+        match_str = match_str.replace(",", "")
     else:
-        match = INVALID_ANS
-
-    match = match.strip().replace('$', '').replace(',', '')
-    if match.endswith('.'):
-        match = match[:-1]
-
-    return match
+        return INVALID_ANS
+    return match_str
 
 
 def extract_groundtruth(groundtruth_str: str):
