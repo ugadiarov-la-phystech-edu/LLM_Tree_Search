@@ -1,3 +1,5 @@
+# Revisiting Tree Search for LLMs: Gumbel and Sequential Halving for Budget-Scalable Reasoning
+
 This repository is based on: https://github.com/waterhorse1/LLM_Tree_Search.git
 
 Installation:
