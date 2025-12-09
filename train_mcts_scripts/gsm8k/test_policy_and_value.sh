@@ -15,7 +15,25 @@ torchrun --nproc_per_node=8 --master-port 29503 ../../tsllm/offline_rl/test_sft_
     --tokenizer_path $CRITIC_PATH \
     --save_dir $1/pi_sftep3_v_sftep1 \
     --env_name gsm8k \
-    --rollout_method "mcts.beam_search" \
+    --rollout_method "mcts.beam_search" \Жй
     --tree_max_length 8 \
     --tree_max_actions 6 \
     --test True
+
+torchrun --nproc_per_node=$n_gpus --master-port 29503 ../../tsllm/offline_rl/test_sft_and_v.py \
+    --ct2_dir $CT2_DIR \
+    --critic_model_path $CRITIC_PATH \
+    --tokenizer_path $CRITIC_PATH \
+    --save_dir $save_dir \
+    --env_name gsm8k \
+    --rollout_method "mcts.gumbel" \
+    --tree_max_length 16 \
+    --tree_max_actions 24 \
+    --test $is_test \
+    --final_action_strategy visits \
+    --num_simulations 50 \
+    --clear_subtrees \
+    --sequential_halving_start_nodes 24 \
+    --non_root_child_selection_mode gumbel \
+    --seed ${seed} \
+    2>&1 | tee "$save_dir"/out.log

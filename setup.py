@@ -6,7 +6,7 @@ import setuptools
 setup(
     name="tsllm",  # Replace with your own username
     version="0.1.0",
-    description="TS_LLM: AlphaZero-like tree-search learning framework for LLMs",
+    description="AlphaZero-like tree-search",
     long_description=open("README.md", encoding="utf8").read(),
     long_description_content_type="text/markdown",
     author="tmp",

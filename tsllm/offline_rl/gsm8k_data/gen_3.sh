@@ -4,10 +4,10 @@ K=100
 T=0.7
 N_WORKER=16
 OUTPUT_DIR=./gsm8k_data/cot_sample/
-CUDA_DEVICES=0,1,2,3,4,5,6,7
 
 CT2_CACHE=$1
 TOKENIZER_PATH=$2
+CUDA_DEVICES=$CUDA_VISIBLE_DEVICES
 
 python generate_data.py \
     -k $K \

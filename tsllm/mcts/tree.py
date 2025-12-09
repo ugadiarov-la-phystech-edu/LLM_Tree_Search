@@ -492,14 +492,14 @@ class MCTS(object):
     ) -> Tuple[int, List[float]]:
         """
         Overview:
-            calculate the move probabilities based on visit counts at the root node.
+            calculate the move probabilities using Gumbel AlphaZero.
         Arguments:
             - simulate_env (:obj:`Class BaseGameEnv`): The class of simulate env.
             - policy_forward_fn (:obj:`Function`): The Callable to compute the action probs and state value.
-            - temperature (:obj:`Int`): Temperature is a parameter that controls the "softness" of the probability distribution.
-            - sample (:obj:`Bool`): The value of the node.
+            - temperature (:obj:`Int`): not used.
+            - sample (:obj:`Bool`): not used.
         Returns:
-            - action (:obj:`Bool`): Select the action with the most visits as the final action.
+            - action (:obj:`Bool`): The final action.
             - action_probs (:obj:`List`): The output probability of each action.
         """
         if self.root is None:
@@ -897,6 +897,7 @@ class MCTS(object):
             - node (:obj:`Class Node`): Current node when performing mcts search.
             - simulate_env (:obj:`Class BaseGameEnv`): The class of simulate env.
             - policy_forward_fn (:obj:`Function`): The Callable to compute the action probs and state value.
+            - first_action: the action selected during sequential halving (only for Gumbel AlphaZero)
         """
         # XXX: fix the bug temporally, better implementation is required.
         winner = None
