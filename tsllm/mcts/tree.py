@@ -1015,6 +1015,12 @@ class MCTS(object):
             node.update_recursive(-leaf_value, simulate_env.mcts_mode, node.max_value)
 
     def _select_child_gumbel(self, node: GumbelNode, simulate_env: Type[CoTEnv]):
+        if not node.has_collected_token_num:
+            self._num_generated_token += sum(
+                c.num_generated_token for c in node.children.values()
+            )
+            node.has_collected_token_num = True
+
         improved_policy = self.get_improved_policy(node)
         action_id = np.argmax(improved_policy - node.get_altered_visit_count_distribution_tensor())
         action, child = list(node.children.items())[action_id]
