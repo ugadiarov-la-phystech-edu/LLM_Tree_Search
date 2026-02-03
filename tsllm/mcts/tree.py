@@ -306,6 +306,8 @@ class MCTS(object):
         self.gumbel_c_scale = self._cfg.get("gumbel_c_scale", 1)
 
         self.non_root_child_selection_mode = self._cfg.get("non_root_child_selection_mode", "ucb")
+        self._use_gumbel_noise_in_alpha_mcts = self._cfg.get("use_gumbel_noise_in_alpha_mcts", False)
+        self._use_gumbel_noise_in_gumbel_mcts = self._cfg.get("use_gumbel_noise_in_gumbel_mcts", True)
 
     @property
     def num_generated_token(self):
@@ -430,6 +432,9 @@ class MCTS(object):
         if sample:
             self._add_exploration_noise(root)
 
+        if self._use_gumbel_noise_in_alpha_mcts:
+            self._add_gumbel_noise(root)
+
         for n in range(self._num_simulations):
             simulate_env_copy = simulate_env.copy()
             simulate_env_copy.battle_mode = simulate_env_copy.mcts_mode
@@ -522,7 +527,11 @@ class MCTS(object):
             else:
                 return possible_actions[0], np.ones((1,), dtype=np.float32)
 
-        gumbel_logits = np.random.gumbel(size=len(possible_actions))
+        if self._use_gumbel_noise_in_gumbel_mcts:
+            gumbel_logits = np.random.gumbel(size=len(possible_actions))
+        else:
+            gumbel_logits = np.zeros((len(possible_actions),), dtype=np.float64)
+
         gumbel_logits += np.array([child.prior_log_p for child in self.root.children.values()])
         num_actions_on_levels, num_simulations_per_action_on_levels = self.get_sequential_halving_simulations_for_levels(
             min(self._sequential_halving_start_nodes, len(possible_actions)), self._num_simulations)
@@ -1255,6 +1264,14 @@ class MCTS(object):
         # Update the prior probability of each child node with the exploration noise.
         for a, n in zip(actions, noise):
             node.children[a].prior_p = node.children[a].prior_p * (1 - frac) + n * frac
+
+    def _add_gumbel_noise(self, node: Node):
+        actions = list(node.children.keys())
+        probs = np.array([node.children[a].prior_p for a in actions])
+        noise_log_probs = np.log(probs) + np.random.gumbel(size=len(actions))
+        noise_probs = self.softmax(noise_log_probs)
+        for a, p in zip(actions, noise_probs):
+            node.children[a].prior_p = p
 
     @classmethod
     def from_json(cls, cfg: dict, json_path: str, reset_visit_info: bool):

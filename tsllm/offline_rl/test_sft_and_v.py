@@ -165,6 +165,9 @@ class SearchArgs:
     max_new_tokens: int = 64
     seed: int = 7
 
+    use_gumbel_noise_in_gumbel_mcts: bool = True
+    use_gumbel_noise_in_alpha_mcts: bool = False
+
 
 if __name__ == "__main__":
     TEST_NO_TERMINAL = int(os.getenv("TEST_NO_TERMINAL", 0))
@@ -197,6 +200,8 @@ if __name__ == "__main__":
     parser.add_argument("--max_new_tokens", type=int, default=64)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--use_mean_logprob", type=str2bool, default=True)
+    parser.add_argument("--use_gumbel_noise_in_gumbel_mcts", type=str2bool, default=True)
+    parser.add_argument("--use_gumbel_noise_in_alpha_mcts", type=str2bool, default=False)
     config = parser.parse_args()
 
     # RANDOM_SEEDS = [x * 10009 + 7 for x in [0, 1, 2]]
@@ -226,6 +231,8 @@ if __name__ == "__main__":
             "clear_subtrees": config.clear_subtrees,
             "non_root_child_selection_mode": config.non_root_child_selection_mode,
             "max_new_tokens": config.max_new_tokens,
+            "use_gumbel_noise_in_gumbel_mcts": config.use_gumbel_noise_in_gumbel_mcts,
+            "use_gumbel_noise_in_alpha_mcts": config.use_gumbel_noise_in_alpha_mcts,
         },
     ]
 
@@ -405,6 +412,8 @@ if __name__ == "__main__":
             "final_action_strategy": args.final_action_strategy,
             "sequential_halving_start_nodes": args.sequential_halving_start_nodes,
             "non_root_child_selection_mode": args.non_root_child_selection_mode,
+            "use_gumbel_noise_in_gumbel_mcts": args.use_gumbel_noise_in_gumbel_mcts,
+            "use_gumbel_noise_in_alpha_mcts": args.use_gumbel_noise_in_alpha_mcts,
         }
         if tree_path and tree_path.exists():
             mcts = MCTS.from_json(cfg, tree_path, reset_visit_info=True)
