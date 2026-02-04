@@ -431,7 +431,7 @@ if __name__ == "__main__":
                 return_tree=True,
             )
         elif args.rollout_method == "mcts.get_next_action":
-            output_list = _mcts_rollout_v1(
+            output_list, tree = _mcts_rollout_v1(
                 mcts,
                 env,
                 policy_forward_value,
@@ -523,12 +523,15 @@ if __name__ == "__main__":
             judge_correct,
         )
 
+        tree['groundtruth'] = extracted_groundtruth
+        tree['correct'] = bool(judge_results['majority_vote@1'])
+
         if output_list and args.rollout_method != "mcts.rollout":
             num_token = output_list[-1]["num_generated_token"]
         else:
             num_token = mcts.num_generated_token
         judge_results["#token"] = num_token
-        return mcts, judge_results, output_list
+        return mcts, judge_results, output_list, tree
 
     def test_problem(
         args,
@@ -538,6 +541,7 @@ if __name__ == "__main__":
         cot_sc_writer,
         mcts_no_term_writer,
         mcts_w_term_writer,
+        mcts_no_term_tree_writer,
     ):
         results = {}
 
@@ -552,11 +556,16 @@ if __name__ == "__main__":
                 }
                 writer.write(obj)
 
+        def save_tree_fn(writer, tree):
+            if writer is not None:
+                tree['idx'] = idx
+                writer.write(tree)
+
         if TEST_NO_TERMINAL:
             # save_tree_path = save_dir / f"tmp_tree"
             # if not save_tree_path.exists():
             #     save_tree_path.mkdir(parents=True)
-            mcts, r_no_terminal, no_terminal_episodes = mcts_multi_search(
+            mcts, r_no_terminal, no_terminal_episodes, tree = mcts_multi_search(
                 args, problem_inst, True
             )
             # json.dump(
@@ -565,6 +574,7 @@ if __name__ == "__main__":
             #     indent=2,
             # )
             save_fn(mcts_no_term_writer, no_terminal_episodes, r_no_terminal)
+            save_tree_fn(mcts_no_term_tree_writer, tree)
             results["w/o-terminal"] = r_no_terminal
 
         if TEST_WITH_TERMINAL:
@@ -661,6 +671,9 @@ if __name__ == "__main__":
             mcts_no_term_writer = jsonlines.open(
                 mcts_no_term_save_path / f"{local_rank}.jsonl", "a"
             )
+            mcts_no_term_tree_writer = jsonlines.open(
+                mcts_no_term_save_path / f"{local_rank}_tree.jsonl", "a"
+            )
         else:
             mcts_no_term_writer = None
 
@@ -688,6 +701,7 @@ if __name__ == "__main__":
                     cot_sc_writer,
                     mcts_no_term_writer,
                     mcts_w_term_writer,
+                    mcts_no_term_tree_writer,
                 )
                 for k, v in results.items():
                     if isinstance(v, int):

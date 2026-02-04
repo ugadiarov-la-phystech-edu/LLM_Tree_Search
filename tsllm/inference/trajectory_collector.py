@@ -1,7 +1,7 @@
 from typing import Optional
 from tsllm.envs.base_env import CoTEnv
 from tsllm.inference.evaluation.vote_utils import MAJORITY_VOTE
-from tsllm.mcts.tree import MCTS
+from tsllm.mcts.tree import MCTS, tree_to_dict
 from tsllm.mcts.utils import get_root
 import time
 
@@ -42,6 +42,8 @@ def _mcts_rollout_v1(
 
         num_generated_token = mcts.num_generated_token
 
+        tree = tree_to_dict(mcts.root)
+
         traj_data = {
             "path_idx": i,
             "text": env.answer.strip(),  # drop the last "\n"
@@ -65,7 +67,7 @@ def _mcts_rollout_v1(
             ]
         done = False
 
-    return output_episodes
+    return output_episodes, tree
 
 
 def _mcts_rollout_v2(

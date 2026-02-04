@@ -193,6 +193,23 @@ class LanguageNode(Node):
             info_dict["text_state"] = self.text_state
         return info_dict
 
+    def to_dict(self, level=0):
+        if self.is_root():
+            action = self.text_state
+        else:
+            action = self.last_action
+
+        info = {'action': action, 'num_tokens': self.num_generated_token, 'prior_p': self.prior_p,
+                'value': self.value, 'num_visits': self.visit_count, 'terminated': self.terminated,
+                'level': level, 'on_path': False}
+
+        if self.is_leaf():
+            info['children'] = []
+        else:
+            info['children'] = [child.to_dict(level=level + 1) for child in self.children.values()]
+
+        return info
+
 
 class GumbelNode(LanguageNode):
     def __init__(
@@ -260,6 +277,31 @@ def get_root(node: Node):
     while not node.is_root():
         node = node.parent
     return node
+
+
+def tree_to_dict(node: LanguageNode):
+    path = []
+    while not node.is_root():
+        path.append(node.last_action)
+        node = node.parent
+
+    tree_dict = node.to_dict()
+    tree_dict['on_path'] = True
+    tree_dict['response'] = '\n'.join(path[::-1])
+    current_node_dict = tree_dict
+    for action in path[::-1]:
+        found = False
+        for child in current_node_dict['children']:
+            if child['action'] == action:
+                current_node_dict = child
+                current_node_dict['on_path'] = True
+                found = True
+                break
+
+        if not found:
+            raise ValueError(f'Cannot find child for action: {action}')
+
+    return tree_dict
 
 
 class MCTS(object):
