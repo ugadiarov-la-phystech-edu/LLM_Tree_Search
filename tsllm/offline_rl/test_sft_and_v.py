@@ -453,7 +453,7 @@ if __name__ == "__main__":
                 o["value"] = v
 
         elif args.rollout_method == "mcts.gumbel":
-            output_list = _mcts_gumbel(
+            output_list, tree = _mcts_gumbel(
                 mcts,
                 env,
                 policy_forward_value,

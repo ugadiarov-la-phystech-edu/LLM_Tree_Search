@@ -21,43 +21,64 @@ def llm_gen_ct2(
 
     if isinstance(stop, int):
         stop = [stop]
-    generation_batch_size = generation_config.get("generation_batch_size", 8)
-    n_batches = math.ceil(num_sequence / generation_batch_size)
-    texts = []
-    logps = []
-    num_tokens = []
-    for batch_id in range(n_batches):
-        batch_num_sequence = generation_batch_size
-        if batch_id == n_batches - 1:
-            batch_num_sequence = num_sequence - generation_batch_size * batch_id
 
-        step_results = generator.generate_batch(
-            [prompt_tokens],
-            sampling_temperature=generation_config.get("temperature", 1.0),
-            sampling_topp=generation_config.get("top_p", 1.0),
-            sampling_topk=generation_config.get("top_k", 1),
-            max_length=generation_config.get("max_new_tokens", 16),
-            return_scores=True,
-            include_prompt_in_result=False,
-            end_token=stop,
-            static_prompt=static_prompt_tokens,
-            max_batch_size=generation_config.get("max_batch_size", 0),
-            num_hypotheses=batch_num_sequence,
-        )
+    generation_batch_sizes = [generation_config.get("generation_batch_size", 8)]
+    while True:
+        generation_batch_size = generation_batch_sizes[-1] // 2
+        if generation_batch_size > 0:
+            generation_batch_sizes.append(generation_batch_size)
+        else:
+            break
 
-        results = list(step_results)
-        for seq in results[0].sequences_ids:
-            texts.append(tokenizer.decode(seq))
-            num_tokens.append(len(seq))
+    success = False
+    exception = None
+    for generation_batch_size in generation_batch_sizes:
+        try:
+            n_batches = math.ceil(num_sequence / generation_batch_size)
+            texts = []
+            logps = []
+            num_tokens = []
+            for batch_id in range(n_batches):
+                batch_num_sequence = generation_batch_size
+                if batch_id == n_batches - 1:
+                    batch_num_sequence = num_sequence - generation_batch_size * batch_id
 
-        for logp in results[0].scores:
-            logps.append(logp)
+                step_results = generator.generate_batch(
+                    [prompt_tokens],
+                    sampling_temperature=generation_config.get("temperature", 1.0),
+                    sampling_topp=generation_config.get("top_p", 1.0),
+                    sampling_topk=generation_config.get("top_k", 1),
+                    max_length=generation_config.get("max_new_tokens", 16),
+                    return_scores=True,
+                    include_prompt_in_result=False,
+                    end_token=stop,
+                    static_prompt=static_prompt_tokens,
+                    max_batch_size=generation_config.get("max_batch_size", 0),
+                    num_hypotheses=batch_num_sequence,
+                )
 
-    assert len(texts) == num_sequence
+                results = list(step_results)
+                for seq in results[0].sequences_ids:
+                    texts.append(tokenizer.decode(seq))
+                    num_tokens.append(len(seq))
 
-    result = [texts, logps]
-    if return_num_tokens:
-        result.append(num_tokens)
+                for logp in results[0].scores:
+                    logps.append(logp)
+
+            assert len(texts) == num_sequence
+
+            result = [texts, logps]
+            if return_num_tokens:
+                result.append(num_tokens)
+
+            success = True
+            break
+        except RuntimeError as e:
+            exception = e
+            print(f'An error occurred for batch size {generation_batch_size}:', e)
+
+    if not success:
+        raise exception
 
     return result
 
