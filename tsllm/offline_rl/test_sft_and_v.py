@@ -193,7 +193,7 @@ if __name__ == "__main__":
                         default="visits")
     parser.add_argument("--sequential_halving_start_nodes", type=int, default=5)
     parser.add_argument("--num_simulations", type=int, default=5)
-    parser.add_argument("--clear_subtrees", action='store_true', default=False)
+    parser.add_argument("--clear_subtrees", type=str2bool, default=False)
     parser.add_argument("--non_root_child_selection_mode", type=str, choices=['ucb', 'gumbel'], default='ucb')
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--action_distribution_temperature", type=float, default=1.0)
