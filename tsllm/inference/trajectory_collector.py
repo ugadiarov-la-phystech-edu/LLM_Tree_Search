@@ -136,6 +136,8 @@ def _mcts_gumbel(
 
         num_generated_token = mcts.num_generated_token
 
+        tree = tree_to_dict(mcts.root)
+
         traj_data = {
             "path_idx": i,
             "text": env.answer.strip(),  # drop the last "\n"
@@ -159,4 +161,4 @@ def _mcts_gumbel(
             ]
         done = False
 
-    return output_episodes
+    return output_episodes, tree
