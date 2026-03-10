@@ -7,6 +7,7 @@ import numpy as np
 from .prompt import COT_EXAMPLES, COT_TASK_DESC, PROBLEM_FORMAT_STR, SEP
 
 STOP_STR = "The answer is "
+QUESTION_KEY = "question"
 
 
 def extract_answer(answer_str):
@@ -63,8 +64,8 @@ class Game24Env(CoTEnv):
         problem_format_str: str = PROBLEM_FORMAT_STR,
         reset=True,
     ):
-        if "max_length" in config and config["max_length"] != 4:
-            print_with_rank("In game24 max_length should be 4, force setting it to 4.")
+        # if "max_length" in config and config["max_length"] != 4:
+        #     print_with_rank("In game24 max_length should be 4, force setting it to 4.")
         config["max_length"] = 4
         super().__init__(
             config,
