@@ -1214,15 +1214,7 @@ class MCTS(object):
 
             success = False
             exception = None
-            while True:
-                proceed = len(child_states_partition) == 1
-                for current_child_state in child_states_partition:
-                    if len(current_child_state) > 1:
-                        proceed = True
-                
-                if not proceed:
-                    break
-
+            while any([len(x) > 1 for x in child_states_partition]):
                 try:
                     child_values= []
                     for current_child_states in child_states_partition:
@@ -1231,7 +1223,7 @@ class MCTS(object):
 
                     success = True
                     break
-                except Exception as e:
+                except RuntimeError as e:
                     print(f'An error occurred for batch size {[len(x) for x in child_states_partition]}:', e)
                     exception = e
                     tmp_child_state_partition = []
