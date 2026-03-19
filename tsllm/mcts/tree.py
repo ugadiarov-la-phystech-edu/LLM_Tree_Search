@@ -1207,12 +1207,36 @@ class MCTS(object):
         else:
             leaf_value = node._initial_value
             assert len(simulate_env.legal_actions) > 0
-            child_values = policy_forward_fn(
-                [
-                    text_state + x["action"] + simulate_env.sep
-                    for x in simulate_env.legal_actions
-                ]
-            ).tolist()
+            child_states_partition = [[
+                text_state + x["action"] + simulate_env.sep
+                for x in simulate_env.legal_actions
+            ]]
+
+            success = False
+            exception = None
+            while any([len(x) > 1 for x in child_states_partition]):
+                try:
+                    child_values= []
+                    for current_child_states in child_states_partition:
+                        current_child_values = policy_forward_fn(current_child_states).tolist()
+                        child_values.extend(current_child_values)
+
+                    success = True
+                    break
+                except Exception as e:
+                    print(f'An error occurred for batch size {[len(x) for x in child_states_partition]}:', e)
+                    exception = e
+                    tmp_child_state_partition = []
+                    for current_child_states in child_states_partition:
+                        length = len(current_child_states)
+                        if length > 1:
+                            tmp_child_state_partition.append(current_child_states[:length // 2])
+                            tmp_child_state_partition.append(current_child_states[length // 2:])
+
+                    child_states_partition = tmp_child_state_partition
+
+            if not success:
+                raise exception
 
         assert len(node.children) == 0
         for i, action_dict in enumerate(simulate_env.legal_actions):
