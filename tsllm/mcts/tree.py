@@ -1214,7 +1214,15 @@ class MCTS(object):
 
             success = False
             exception = None
-            while any([len(x) > 1 for x in child_states_partition]):
+            while True:
+                proceed = len(child_states_partition) == 1
+                for current_child_state in child_states_partition:
+                    if len(current_child_state) > 1:
+                        proceed = True
+                
+                if not proceed:
+                    break
+
                 try:
                     child_values= []
                     for current_child_states in child_states_partition:
