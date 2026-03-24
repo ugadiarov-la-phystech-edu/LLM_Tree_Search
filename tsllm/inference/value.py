@@ -44,7 +44,7 @@ def value_fn(
                 value = value.gather(1, indices2pick.unsqueeze_(1)).squeeze_(1).float().numpy()
                 values.append(value)
 
-            values = torch.cat(values)
+            values = np.concatenate(values)
             success = True
             break
         except RuntimeError as e:
