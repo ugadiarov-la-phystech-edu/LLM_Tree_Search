@@ -38,6 +38,8 @@ import os
 import importlib
 import random
 
+from tsllm.offline_rl.utils import get_batch_sizes
+
 
 def setup_seed(seed):
     torch.manual_seed(seed)
@@ -168,6 +170,8 @@ class SearchArgs:
     use_gumbel_noise_in_gumbel_mcts: bool = True
     use_gumbel_noise_in_alpha_mcts: bool = False
 
+    max_generation_batch_size: int = 8
+
 
 if __name__ == "__main__":
     TEST_NO_TERMINAL = int(os.getenv("TEST_NO_TERMINAL", 0))
@@ -202,6 +206,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_mean_logprob", type=str2bool, default=True)
     parser.add_argument("--use_gumbel_noise_in_gumbel_mcts", type=str2bool, default=True)
     parser.add_argument("--use_gumbel_noise_in_alpha_mcts", type=str2bool, default=False)
+    parser.add_argument("--max_generation_batch_size", type=int, default=8)
     config = parser.parse_args()
 
     # RANDOM_SEEDS = [x * 10009 + 7 for x in [0, 1, 2]]
@@ -233,6 +238,7 @@ if __name__ == "__main__":
             "max_new_tokens": config.max_new_tokens,
             "use_gumbel_noise_in_gumbel_mcts": config.use_gumbel_noise_in_gumbel_mcts,
             "use_gumbel_noise_in_alpha_mcts": config.use_gumbel_noise_in_alpha_mcts,
+            "max_generation_batch_size": config.max_generation_batch_size,
         },
     ]
 
@@ -389,6 +395,7 @@ if __name__ == "__main__":
                     "output_scores": True,
                     "use_cache": True,
                     "use_mean_logprob": args.use_mean_logprob,
+                    "generation_batch_sizes": get_batch_sizes(args.max_generation_batch_size),
                 },
             },
             math_problems=[

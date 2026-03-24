@@ -22,17 +22,9 @@ def llm_gen_ct2(
     if isinstance(stop, int):
         stop = [stop]
 
-    generation_batch_sizes = [generation_config.get("generation_batch_size", 8)]
-    while True:
-        generation_batch_size = generation_batch_sizes[-1] // 2
-        if generation_batch_size > 0:
-            generation_batch_sizes.append(generation_batch_size)
-        else:
-            break
-
     success = False
     exception = None
-    for generation_batch_size in generation_batch_sizes:
+    for generation_batch_size in generation_config["generation_batch_sizes"]:
         try:
             n_batches = math.ceil(num_sequence / generation_batch_size)
             texts = []
@@ -75,7 +67,7 @@ def llm_gen_ct2(
             break
         except RuntimeError as e:
             exception = e
-            print(f'An error occurred for batch size {generation_batch_size}:', e)
+            print(f'An error occurred during generation with batch size {generation_batch_size}:', e)
 
     if not success:
         raise exception

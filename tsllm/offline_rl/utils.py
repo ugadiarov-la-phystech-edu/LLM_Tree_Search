@@ -31,3 +31,15 @@ def setup_seed(seed):
     random.seed(seed)
     os.environ["PYTHONHASHSEED"] = str(seed)
     torch.backends.cudnn.deterministic = True
+
+
+def get_batch_sizes(max_batch_size):
+    batch_sizes = [max_batch_size]
+    while True:
+        batch_size = batch_sizes[-1] // 2
+        if batch_size > 0:
+            batch_sizes.append(batch_size)
+        else:
+            break
+
+    return batch_sizes
