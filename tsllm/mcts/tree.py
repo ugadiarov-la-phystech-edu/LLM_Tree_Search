@@ -3,7 +3,6 @@ The Node and MCTS class for AlphaZero.
 """
 #
 import copy
-import gc
 import json
 import math
 
@@ -1208,48 +1207,12 @@ class MCTS(object):
         else:
             leaf_value = node._initial_value
             assert len(simulate_env.legal_actions) > 0
-            child_states_partition = [[
-                text_state + x["action"] + simulate_env.sep
-                for x in simulate_env.legal_actions
-            ]]
-
-            success = False
-            exception = None
-            while (len(child_states_partition) == 1 and exception is None) or ([len(current_child_states) > 1 for current_child_states in child_states_partition]):
-                try:
-                    child_values= []
-                    for current_child_states in child_states_partition:
-                        current_child_values = policy_forward_fn(current_child_states).tolist()
-                        child_values.extend(current_child_values)
-
-                    success = True
-                    break
-                except RuntimeError as e:
-                    if "out of memory" in str(e):
-                        torch.cuda.empty_cache()
-                        gc.collect()
-
-                        print(f'An OOM error occurred for partitions: {[len(x) for x in child_states_partition]}:', e)
-                        exception = e
-                        tmp_child_state_partition = []
-                        updated = False
-                        for current_child_states in child_states_partition:
-                            length = len(current_child_states)
-                            if length > 1:
-                                tmp_child_state_partition.append(current_child_states[:length // 2])
-                                tmp_child_state_partition.append(current_child_states[length // 2:])
-                                updated = True
-                            else:
-                                tmp_child_state_partition.append(current_child_states)
-
-                        child_states_partition = tmp_child_state_partition
-                        if not updated:
-                            break
-                    else:
-                        raise e
-
-            if not success:
-                raise exception
+            child_values = policy_forward_fn(
+                [
+                    text_state + x["action"] + simulate_env.sep
+                    for x in simulate_env.legal_actions
+                ]
+            ).tolist()
 
         assert len(node.children) == 0
         for i, action_dict in enumerate(simulate_env.legal_actions):

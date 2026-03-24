@@ -207,6 +207,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_gumbel_noise_in_gumbel_mcts", type=str2bool, default=True)
     parser.add_argument("--use_gumbel_noise_in_alpha_mcts", type=str2bool, default=False)
     parser.add_argument("--max_generation_batch_size", type=int, default=8)
+    parser.add_argument("--max_critic_batch_size", type=int, required=False)
     config = parser.parse_args()
 
     # RANDOM_SEEDS = [x * 10009 + 7 for x in [0, 1, 2]]
@@ -279,7 +280,9 @@ if __name__ == "__main__":
         critic = load_critic_model(
             config.critic_model_path, config.state_dict_path, device
         )
-        policy_forward_value = partial(value_fn, critic, tokenizer)
+        max_critic_batch_size = config.max_critic_batch_size if config.max_critic_batch_size else config.tree_max_actions
+        critic_batch_sizes = get_batch_sizes(max_critic_batch_size)
+        policy_forward_value = partial(value_fn, critic, tokenizer, batch_sizes=critic_batch_sizes)
 
     ############ CONVERT MODEL to CT2 files ###################
     ct2_generator, ct2_sp = load_ct2_model(
