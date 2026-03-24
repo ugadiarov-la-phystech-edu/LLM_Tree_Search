@@ -171,6 +171,7 @@ class SearchArgs:
     use_gumbel_noise_in_alpha_mcts: bool = False
 
     max_generation_batch_size: int = 8
+    max_critic_batch_size: int = 6
 
 
 if __name__ == "__main__":
@@ -240,6 +241,7 @@ if __name__ == "__main__":
             "use_gumbel_noise_in_gumbel_mcts": config.use_gumbel_noise_in_gumbel_mcts,
             "use_gumbel_noise_in_alpha_mcts": config.use_gumbel_noise_in_alpha_mcts,
             "max_generation_batch_size": config.max_generation_batch_size,
+            "max_critic_batch_size": config.max_critic_batch_size,
         },
     ]
 
