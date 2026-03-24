@@ -24,7 +24,7 @@ def llm_gen_ct2(
 
     success = False
     exception = None
-    for generation_batch_size in generation_config["generation_batch_sizes"]:
+    for generation_batch_size in generation_config.get("generation_batch_sizes", [8]):
         try:
             n_batches = math.ceil(num_sequence / generation_batch_size)
             texts = []
