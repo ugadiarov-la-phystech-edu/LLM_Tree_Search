@@ -113,12 +113,10 @@ class SearchArgs:
     temperature: float = 1.0
     # temperature used for MCTS tree expansion
     action_distribution_temperature: float = 1.0
-    # COT-SC number
-    k_maj: int = 100
     use_mean_logprob: bool = True
 
     # MCTS aggregation number
-    num_mcts_aggregation: int = 5
+    num_mcts_aggregation: int = 1
 
     # which tree search methods to use
     #  ["mcts.get_next_action", "mcts.gumbel"]
@@ -143,19 +141,6 @@ class SearchArgs:
     final_action_strategy: str = None
     sequential_halving_start_nodes: int = 10
     non_root_child_selection_mode: str = 'ucb'
-
-    # MCTS-Rollout Hyperparameters
-    max_simulation: Optional[int] = None
-    max_token: Optional[int] = None
-
-    # DFS hyperparameters
-    prune_ratio: Optional[float] = None
-    prune_value: Optional[float] = None
-
-    # if set method to be mcts.rap and set this to be True, then
-    #  it samples with llm's prior on the tree space, which is
-    #  CoT-SC-Tree
-    select_by_prior: bool = False
     max_new_tokens: int = 64
     seed: int = 7
 
