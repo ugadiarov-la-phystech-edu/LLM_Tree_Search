@@ -4,6 +4,7 @@ from typing import List
 MAJORITY_VOTE = "majority_vote"
 ORM_VOTE = "orm_vote"
 ORM_MAX = "orm_max"
+RESULT = "result" # single value
 
 
 def _agg_majority_vote(x_list: List[str], unused_v_list: List[float]):
@@ -31,4 +32,5 @@ AGG_FN_MAP = {
     MAJORITY_VOTE: _agg_majority_vote,
     ORM_VOTE: _agg_orm_vote,
     ORM_MAX: _agg_orm_max,
+    RESULT: _agg_majority_vote,
 }
