@@ -351,6 +351,9 @@ class MCTS(object):
         self._use_gumbel_noise_in_alpha_mcts = self._cfg.get("use_gumbel_noise_in_alpha_mcts", False)
         self._use_gumbel_noise_in_gumbel_mcts = self._cfg.get("use_gumbel_noise_in_gumbel_mcts", True)
 
+        if self._sequential_halving_start_nodes > self._num_simulations:
+            raise ValueError(f"Sequential Halving start nodes can't be greater than number of simulations: {self._sequential_halving_start_nodes} > {self._num_simulations}")
+
     @property
     def num_generated_token(self):
         return self._num_generated_token
