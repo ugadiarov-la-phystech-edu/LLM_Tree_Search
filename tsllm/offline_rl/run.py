@@ -391,12 +391,8 @@ if __name__ == "__main__":
         )
 
         tree['groundtruth'] = extracted_groundtruth
-        tree['correct'] = bool(judge_results['majority_vote@1'])
-
-        if output_list and args.rollout_method != "mcts.rollout":
-            num_token = output_list[-1]["num_generated_token"]
-        else:
-            num_token = mcts.num_generated_token
+        tree['correct'] = bool(judge_results[f'{RESULT}@{args.num_mcts_aggregation}'])
+        num_token = output_list[-1]["num_generated_token"]
         judge_results["#token"] = num_token
         return mcts, judge_results, output_list, tree
 
