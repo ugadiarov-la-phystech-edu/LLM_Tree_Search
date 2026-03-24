@@ -173,6 +173,8 @@ class SearchArgs:
     max_generation_batch_size: int = 8
     max_critic_batch_size: int = 6
 
+    save_mcts_trees: bool = True
+
 
 if __name__ == "__main__":
     TEST_NO_TERMINAL = int(os.getenv("TEST_NO_TERMINAL", 0))
@@ -209,6 +211,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_gumbel_noise_in_alpha_mcts", type=str2bool, default=False)
     parser.add_argument("--max_generation_batch_size", type=int, default=8)
     parser.add_argument("--max_critic_batch_size", type=int, required=False)
+    parser.add_argument("--save_mcts_trees", type=str2bool, default=True)
     config = parser.parse_args()
 
     # RANDOM_SEEDS = [x * 10009 + 7 for x in [0, 1, 2]]
@@ -242,6 +245,7 @@ if __name__ == "__main__":
             "use_gumbel_noise_in_alpha_mcts": config.use_gumbel_noise_in_alpha_mcts,
             "max_generation_batch_size": config.max_generation_batch_size,
             "max_critic_batch_size": config.max_critic_batch_size,
+            "save_mcts_trees": config.save_mcts_trees,
         },
     ]
 
@@ -683,11 +687,15 @@ if __name__ == "__main__":
             mcts_no_term_writer = jsonlines.open(
                 mcts_no_term_save_path / f"{local_rank}.jsonl", "a"
             )
-            mcts_no_term_tree_writer = jsonlines.open(
-                mcts_no_term_save_path / f"{local_rank}_tree.jsonl", "a"
-            )
+            if args.save_mcts_trees:
+                mcts_no_term_tree_writer = jsonlines.open(
+                    mcts_no_term_save_path / f"{local_rank}_tree.jsonl", "a"
+                )
+            else:
+                mcts_no_term_tree_writer = None
         else:
             mcts_no_term_writer = None
+            mcts_no_term_tree_writer = None
 
         if TEST_WITH_TERMINAL:
             mcts_w_term_save_path = writer_dir / "with_terminal_reward"
