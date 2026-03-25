@@ -129,3 +129,10 @@ bash batch_run_mcts.sh --save_path ${save_path} --seed ${seed} --n_gpus ${n_gpus
 
 # 2 Game24
 For the Game24 dataset, repeat steps 1.1–1.5 using the scripts in the `/path_to_repo/train_mcts_scripts/game24` folder with the `--env_name game24` flag.
+
+
+**CTranslate2 cuda 12 issue**:
+
+`RuntimeError: Library libcublas.so.11 is not found or cannot be loaded`
+
+https://github.com/OpenNMT/CTranslate2/issues/1250#issuecomment-1936533861
