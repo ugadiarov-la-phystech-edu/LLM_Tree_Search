@@ -57,14 +57,14 @@ accelerate launch --config_file mcts_gsm8k_llama_deepspeed.yaml train_gsm8k_sft.
 ```
 After 3 epochs of training, the sft folder contains checkpoint folders: checkpoint_0_ep0, checkpoint_1_ep1, and checkpoint_2_ep2.
 
-## 1.2 Convert each SFT checkpoint using CTranslate2
+## 1.2 Convert SFT checkpoints using CTranslate2
 ```
 ct2-transformers-converter --model sft/checkpoint_0_ep0 --quantization bfloat16 --output_dir sft_ctranslate2/llama2_sft_ep1_ct2
 ct2-transformers-converter --model sft/checkpoint_1_ep1 --quantization bfloat16 --output_dir sft_ctranslate2/llama2_sft_ep2_ct2
 ct2-transformers-converter --model sft/checkpoint_2_ep2 --quantization bfloat16 --output_dir sft_ctranslate2/llama2_sft_ep3_ct2
 ```
 
-## 1.3 Generate data for training the value network
+## 1.3 Generate data for value network training
 ```
 cd /path_to_repo/tsllm/offline_rl
 
@@ -107,7 +107,7 @@ bash run_mcts.sh --save_path ${save_path} --seed ${seed} --simulations ${simulat
 # The generated compeltions are saved into the folder ${save_dir}/"${seed}"_sim-"${simulations}"_len-"${length}"_act-"${actions}"
 ```
 
-## 1.6 Batch run MCTS
+## 1.6 Run MCTS using parameters from a file
 ```
 cd /path_to_repo
 save_dir=gsm8k_rescale_result
@@ -126,4 +126,4 @@ bash batch_run_mcts.sh --save_path ${save_path} --seed ${seed} --n_gpus ${n_gpus
 
 
 # 2 Game24
-For Game24 dataset repeat steps 1.1 - 1.5 using scripts from `/path_to_repo/train_mcts_scripts/game24` folder and `--env_name game24`.
+For the Game24 dataset, repeat steps 1.1–1.5 using the scripts in the `/path_to_repo/train_mcts_scripts/game24` folder with the `--env_name game24` flag.
