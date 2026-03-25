@@ -1,111 +1,126 @@
-# TS_LLM: AlphaZero-like tree-search learning framework for LLMs 
-The official implementation of paper: [Alphazero-like Tree-Search can guide large language model decoding and training](https://arxiv.org/pdf/2309.17179.pdf)
+# ReSCALE: Reasoning via Scalable Compute Allocation for LLM Exploration
 
-# Open Source Model
-We open source our trained policy and value network on Huggingface：
+**ReSCALE** is a modified Gumbel AlphaZero MCTS that replaces Dirichlet noise and PUCT with Gumbel sampling and Sequential Halving, restoring consistent performance scaling without retraining the model.
 
-* GSM8k:
-  - Policy: https://huggingface.co/OhCherryFire/llama2-7b-gsm8k-policy-hf
-  - Value: https://huggingface.co/OhCherryFire/llama2-7b-gsm8k-value
-* Game24:
-	- Policy: https://huggingface.co/OhCherryFire/llama2-7b-game24-policy-hf
-	- Value: https://huggingface.co/OhCherryFire/llama2-7b-game24-value
-* ProntoQA:
-	- Policy: https://huggingface.co/OhCherryFire/llama2-7b-prontoqa-policy-hf
-	- Value: https://huggingface.co/OhCherryFire/llama2-7b-prontoqa-value
+[[`Paper`](https://arxiv.org/abs/2603.21162)]
 
-# Enviroment Installation
-please use correct version of `transformers` and `ctranlate2`
+![ReSCALE Overview](assests/scheme.png)
+
+![ReSCALE results](assests/GSM8K.png)
+
+
+**GSM8k**
+
+| Budget | Method     | Tokens  |         Acc. (%)  | Max. Acc. (%) |
+|:--------|:------------|---------|:-------------:|:--------------:|
+| **Small**  | AlphaZero  | 0.5K–2K |   56.0 ± 1.2 |          58.8 |
+|            | ReSCALE    | 0.5K–2K |   55.1 ± 1.1 |          58.6 |
+| **Medium** | AlphaZero  | 6K–8K   |   56.7 ± 0.9 |          58.3 |
+|            | ReSCALE    | 6K–8K   |   57.9 ± 1.0 |          60.2 |
+| **Large**  | AlphaZero  | 16K–18K |   53.6 ± 0.7 |          55.0 |
+|            | ReSCALE    | 16K–18K |   58.4 ± 0.9 |          59.7 |
+| **—**      | Best-of-N  | 3.5K    |   53.4 ± 0.4 |             - |
+
+**Game24**
+
+| Budget | Method     | Tokens  |          Acc. (%)  | Max. Acc. (%) |
+|:--------|:------------|---------|:--------------:|:--------------:|
+| **Small**  | AlphaZero  | 0.2K–2K |   74.4 ± 12.0 |          86.7 |
+|            | ReSCALE    | 0.2K–2K |   71.6 ± 10.5 |          81.2 |
+| **Medium** | AlphaZero  | 2K–4K   |    84.3 ± 1.0 |          86.2 |
+|            | ReSCALE    | 2K–4K   |    83.4 ± 1.4 |          85.9 |
+| **Large**  | AlphaZero  | 4K–6K   |    82.9 ± 1.1 |          84.8 |
+|            | ReSCALE    | 4K–6K   |   85.3 ± 0.6 |          85.9 |
+| **—**      | Best-of-N  | 2.5K    |    54.1 ± 1.0 |             - |
+
+
+This repository is based on: https://github.com/waterhorse1/LLM_Tree_Search.git
+
+Installation:
+1. Install torch==2.2.0
+2. `pip install -r /path_to_repo/requirements.txt`
+3. `cd /path_to_repo && pip install -e .`
+
+
+# 1  GSM8k
+
+## 1.1 SFT
 ```
-conda create -n tsllm python==3.10
-conda activate tsllm
+cd /path_to_repo/train_mcts_scripts/gsm8k
 
-pip install -r requirement.txt
-
-pip install -e .
+# Default configuration for 8-GPU training: adjust in mcts_gsm8k_llama_deepspeed.yaml
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+accelerate launch --config_file mcts_gsm8k_llama_deepspeed.yaml train_gsm8k_sft.py --checkpoint_dir=sft
 ```
+After 3 epochs of training, the sft folder contains checkpoint folders: checkpoint_0_ep0, checkpoint_1_ep1, and checkpoint_2_ep2.
 
-
-# Runnable Scripts
-We show examples of one task, other tasks are similar and we provide the corresponding scripts.
-
-## Start
-We use [Ctranslate2(3.17.1)](https://github.com/OpenNMT/CTranslate2) to speedup LLM inference, which is implemented in C++ and much faster than python huggingface. To use Ctranslate2, you need first transform your LLM model, here is an example:
-```bash
-ct2-transformers-converter --model {your huggingface model path} --quantization bfloat16 --output_dir {your ct2_cache target path}
-# We use bfloat 16 for LLaMA model and float32 for GPT2 model
+## 1.2 Convert each SFT checkpoint using CTranslate2
 ```
-
-Note that we use Ctranslate2 for all policy inference, so for any policy in our codebase, do not forget to convert to ct2 model first.
-
-## Training of Value and Policy
-Examples are shown in `tran_mcts_scripts`, use GSM8k as example
-```bash
-cd train_mcts_scripts/gsm8k
-# SFT for GSM8K, Game24 and ProntoQA
-# Note that For RLHF we do not conduct SFT training, we directly utilize vicgalle/gpt2-open-instruct-v1.
-accelerate launch --config_file mcts_gsm8k_llama_deepspeed.yaml train_gsm8k_sft.py 
-
-# Critic training for all four tasks, data is collected by data collection section.
-accelerate launch --config_file mcts_gsm8k_llama_deepspeed.yaml train_gsm8k_critic.py
-```
-You can customize `config` in each py files, e.g. `config["train"]["checkpoint_dir"]` and `config["train"]["project_name"]`. (we use accelerate so we also provide the accelerate config in `accelerate_config.yaml`)
-
-## Data Collection for Value Training
-Examples are shown in `tsllm/offline_rl`, use GSM8k as example 
-
-```bash
-cd tsllm/offline_rl
-
-# please check the scripts, for gsm8k and game24, we use 3 checkpoints to rollout data
-# which is named as ${CT2_CACHE}/llama2_sft_ep${i}_ct2
-sh gsm8k_data/gen_3.sh {your ct2 transformed path} {your model tokenizer path} # This is for dataset generation
-
-sh gsm8k_data/process.sh # This is for dataset processing
+ct2-transformers-converter --model sft/checkpoint_0_ep0 --quantization bfloat16 --output_dir sft_ctranslate2/llama2_sft_ep1_ct2
+ct2-transformers-converter --model sft/checkpoint_1_ep1 --quantization bfloat16 --output_dir sft_ctranslate2/llama2_sft_ep2_ct2
+ct2-transformers-converter --model sft/checkpoint_2_ep2 --quantization bfloat16 --output_dir sft_ctranslate2/llama2_sft_ep3_ct2
 ```
 
-## Testing over CoT, CoT-SC and TS-LLM
-For GSM8K, Game24, ProtoQA, you should use `tsllm/offline_rl/test_sft_and_v.py` to test the policy model and value function.
-To run the tests, you should know 2 key concepts used in the code, the first one is 4 test settings, which is controlled by setting environment variables; the other is search arguments, which is set in `tsllm/offline_rl/test_sft_and_v.py` as elements in `arg_list`
-
-There are four types of test setting:
-- `TEST_NO_TERMINAL` is MCTS/other tree search methods in GSM8K/ProntoQA/Game24 (we assume we do not know the final reward in these 3 tasks)
-- `TEST_WITH_TERMINAL` is MCTS/other tree search methods in RLHF (we assume we know the final reward in RLHF)
-- `TEST_COT_GREEDY` is CoT greedy decoding
-- `TEST_COT_SC` is CoT-SC
-
-There are several args to control CoT-SC and Tree Search methods, see `tsllm/offline_rl/test_sft_and_v.py::SearchArgs` for more information.
-
-To run the test, using the following scripts (examples in `train_mcts_scripts/gsm8k/test_policy_and_value.sh`)
+## 1.3 Generate data for training the value network
 ```
-cd train_mcts_scripts/gsm8k/
-sh test_policy_and_value_sh {your save dir}
+cd /path_to_repo/tsllm/offline_rl
+
+# Data generation
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+sh gsm8k_data/gen_3.sh /path_to_repo/train_mcts_scripts/gsm8k/sft_ctranslate2 /path_to_repo/train_mcts_scripts/gsm8k/sft/checkpoint_0_ep0
+
+# Data processing
+sh gsm8k_data/process.sh
 ```
 
-**Please make sure the SearchArguments you are using are correct, e.g. check `"max_action"`, `"max_length"`, etc.**
+## 1.4 Train the value network
+```
+cd /path_to_repo/train_mcts_scripts/gsm8k
+accelerate launch --config_file mcts_gsm8k_llama_deepspeed.yaml train_gsm8k_critic.py --checkpoint_dir=value
+```
+After 3 epochs, the value folder contains checkpoint folders: checkpoint_0_ep0, checkpoint_1_ep1, and checkpoint_2_ep2.
 
+## 1.5 Run MCTS on the test dataset split
+```
+cd /path_to_repo
+save_dir=gsm8k_result
+seed=0
+simulations=30
+actions=16
+length=16
+n_gpus=8
+ct2_dir=/path_to_repo/train_mcts_scripts/gsm8k/sft_ctranslate2/llama2_sft_ep3_ct2
+critic_model_path=/path_to_repo/train_mcts_scripts/gsm8k/value/checkpoint_2_ep2
 
-For RLHF environment, it is basically similar except that you should use `tsllm/offline_rl/test_sft_and_v_rlhf.py`. We assume we have a reward function in RLHF setting, so you shoud set `TEST_WITH_TERMINAL=1` for rlhf experiment. 
+# method=mcts.gumbel for ReSCALE, method=mcts.get_next_action for AlphaZero
+method=mcts.gumbel
 
-There are several args to control CoT-SC and Tree Search methods, see `tsllm/offline_rl/test_sft_and_v_rlhf.py::SearchArgs` for more information.
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+mkdir -p ${save_dir}
+bash run_mcts.sh --save_path ${save_path} --seed ${seed} --simulations ${simulations} --actions ${actions} \
+--length ${length} --n_gpus ${n_gpus} --ct2_dir ${ct2_dir} --critic_model_path ${critic_model_path} --method ${method} \
+--env_name gsm8k
 
-To run the test, we provide an example in `train_mcts_scripts/rlhf/test_policy_and_value.sh`.
-
-## Iterative Update
-For iterative update, please refer to `train_mcts_scripts/gsm8k` and `train_mcts_scripts/rlhf` for more instructions.
-
-## Citation
-If you find our repo useful, please cite it in your publications.
-
-```bibtex
-@article{feng2023alphazero,
-  title={Alphazero-like Tree-Search can Guide Large Language Model Decoding and Training},
-  author={Feng, Xidong and Wan, Ziyu and Wen, Muning and Wen, Ying and Zhang, Weinan and Wang, Jun},
-  journal={arXiv preprint arXiv:2309.17179},
-  year={2023}
-}
+# The generated compeltions are saved into the folder ${save_dir}/"${seed}"_sim-"${simulations}"_len-"${length}"_act-"${actions}"
 ```
 
-## Acknowledgement
-Our code implementation refers to code from [lightzero](https://github.com/opendilab/LightZero).
+## 1.6 Batch run MCTS
+```
+cd /path_to_repo
+save_dir=gsm8k_rescale_result
+seed=0
+n_gpus=8
+ct2_dir=/path_to_repo/train_mcts_scripts/gsm8k/sft_ctranslate2/llama2_sft_ep3_ct2
+critic_model_path=/path_to_repo/train_mcts_scripts/gsm8k/value/checkpoint_2_ep2
+parameters_path=/path_to_repo/data/gsm8k_rescale.tsv
+method=mcts.gumbel
 
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+mkdir -p ${save_dir}
+bash batch_run_mcts.sh --save_path ${save_path} --seed ${seed} --n_gpus ${n_gpus} --ct2_dir ${ct2_dir} \
+--critic_model_path ${critic_model_path} --method ${method} --parameters_path ${parameters_path} --env_name gsm8k
+```
+
+
+# 2 Game24
+For Game24 dataset repeat steps 1.1 - 1.5 using scripts from `/path_to_repo/train_mcts_scripts/game24` folder and `--env_name game24`.
