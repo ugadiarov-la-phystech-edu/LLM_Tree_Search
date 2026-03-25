@@ -2,7 +2,8 @@
 
 **ReSCALE** is a modified Gumbel AlphaZero MCTS that replaces Dirichlet noise and PUCT with Gumbel sampling and Sequential Halving, restoring consistent performance scaling without retraining the model.
 
-[[`Paper`](https://arxiv.org/abs/2603.21162)]
+[![arXiv](https://img.shields.io/badge/arXiv-2603.21162-b31b1b.svg)](https://arxiv.org/abs/2603.21162)
+
 
 <p align="center">
 <img src="assests/scheme.png">
