@@ -4,12 +4,13 @@
 
 [[`Paper`](https://arxiv.org/abs/2603.21162)]
 
-![ReSCALE Overview](assests/scheme.png)
+<p align="center">
+<img src="assests/scheme.png">
+</p>
 
-
-<div style="text-align: center;">
-  <img src="assests/GSM8K.png" width="50%" >
-</div>
+<p align="center">
+<img src="assests/GSM8K.png" width="50%">
+</p>
 
 
 **GSM8k**
