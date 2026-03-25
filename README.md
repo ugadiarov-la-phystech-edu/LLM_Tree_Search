@@ -147,7 +147,7 @@ python scripts/gsm8k_bon.py --ct2_path ${ct2_dir} --critic_model_path ${critic_m
 # Game24
 ct2_dir=/path_to_repo/train_mcts_scripts/game24/sft_ctranslate2/llama2_sft_ep3_ct2
 critic_model_path=/path_to_repo/train_mcts_scripts/game24/value/checkpoint_2_ep2
-python scripts/game24_bon.py --dataset_path tsllm/envs/game24/train_data/train_dedup.jsonl --ct2_path ${ct2_dir} --critic_model_path ${critic_model_path} --n 32 --output game24_bon32.json
+python scripts/game24_bon.py --dataset_path tsllm/envs/game24/train_data/test_dedup.jsonl --ct2_path ${ct2_dir} --critic_model_path ${critic_model_path} --n 32 --output game24_bon32.json
 ```
 
 
