@@ -108,7 +108,7 @@ bash run_mcts.sh --save_path ${save_path} --seed ${seed} --simulations ${simulat
 --length ${length} --n_gpus ${n_gpus} --ct2_dir ${ct2_dir} --critic_model_path ${critic_model_path} --method ${method} \
 --env_name gsm8k
 
-# The generated compeltions are saved into the folder ${save_dir}/"${seed}"_sim-"${simulations}"_len-"${length}"_act-"${actions}"
+# Generated completions are saved to ${save_dir}/"${seed}"_sim-"${simulations}"_len-"${length}"_act-"${actions}"
 ```
 
 ## 1.6 Run MCTS using parameters from a file
