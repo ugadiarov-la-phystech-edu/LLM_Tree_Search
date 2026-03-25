@@ -151,7 +151,7 @@ python scripts/game24_bon.py --dataset_path tsllm/envs/game24/train_data/test_de
 ```
 
 
-**CTranslate2 cuda 12 issue**:
+**Troubleshooting CTranslate2 issues on CUDA 12**:
 
 `RuntimeError: Library libcublas.so.11 is not found or cannot be loaded`
 
