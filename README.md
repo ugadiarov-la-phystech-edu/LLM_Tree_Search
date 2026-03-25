@@ -53,7 +53,7 @@ This repository is based on: https://github.com/waterhorse1/LLM_Tree_Search.git
 ```
 cd /path_to_repo/train_mcts_scripts/gsm8k
 
-# Default configuration for 8-GPU training: adjust in mcts_gsm8k_llama_deepspeed.yaml
+# Default configuration for 8-GPU training: adjust in mcts_gsm8k_llama_deepspeed.yaml and train_gsm8k_sft.py
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 accelerate launch --config_file mcts_gsm8k_llama_deepspeed.yaml train_gsm8k_sft.py --checkpoint_dir=sft
 ```
