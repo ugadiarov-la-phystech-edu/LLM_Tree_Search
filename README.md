@@ -117,8 +117,10 @@ seed=0
 n_gpus=8
 ct2_dir=/path_to_repo/train_mcts_scripts/gsm8k/sft_ctranslate2/llama2_sft_ep3_ct2
 critic_model_path=/path_to_repo/train_mcts_scripts/gsm8k/value/checkpoint_2_ep2
-parameters_path=/path_to_repo/data/gsm8k_rescale.tsv
 method=mcts.gumbel
+
+# The parameters tested are provided in the data folder
+parameters_path=/path_to_repo/data/gsm8k_rescale.tsv
 
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 mkdir -p ${save_dir}
