@@ -37,9 +37,11 @@
 | **—**      | Best-of-N  | 2.5K    |    54.1 ± 1.0 |             - |
 
 
-This repository is based on: https://github.com/waterhorse1/LLM_Tree_Search.git
 
 ## Installation:
+
+This repository is based on: https://github.com/waterhorse1/LLM_Tree_Search.git
+
 1. Install torch==2.2.0
 2. `pip install -r /path_to_repo/requirements.txt`
 3. `cd /path_to_repo && pip install -e .`
