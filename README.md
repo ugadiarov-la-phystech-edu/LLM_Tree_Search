@@ -6,7 +6,9 @@
 
 ![ReSCALE Overview](assests/scheme.png)
 
-<img src="assests/GSM8K.png" width="50%" alt="Alt text" style="display: block; margin: 0 auto;">
+<div style="text-align: center;">
+  <img src="assests/GSM8K.png" width="50%" >
+</div>
 
 
 **GSM8k**
