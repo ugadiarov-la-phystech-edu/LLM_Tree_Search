@@ -132,6 +132,22 @@ bash batch_run_mcts.sh --save_path ${save_path} --seed ${seed} --n_gpus ${n_gpus
 # 2 Game24
 For the Game24 dataset, repeat steps 1.1–1.5 using the scripts in the `/path_to_repo/train_mcts_scripts/game24` folder with the `--env_name game24` flag.
 
+# 3 Best-of-N
+```
+cd /path_to_repo
+export CUDA_VISIBLE_DEVICES=0
+
+# GSM8k
+ct2_dir=/path_to_repo/train_mcts_scripts/gsm8k/sft_ctranslate2/llama2_sft_ep3_ct2
+critic_model_path=/path_to_repo/train_mcts_scripts/gsm8k/value/checkpoint_2_ep2
+python scripts/gsm8k_bon.py --ct2_path ${ct2_dir} --critic_model_path ${critic_model_path} --n 32 --output gsm8k_bon32.json
+
+# Game24
+ct2_dir=/path_to_repo/train_mcts_scripts/game24/sft_ctranslate2/llama2_sft_ep3_ct2
+critic_model_path=/path_to_repo/train_mcts_scripts/game24/value/checkpoint_2_ep2
+python scripts/game24_bon.py --dataset_path tsllm/envs/game24/train_data/train_dedup.jsonl --ct2_path ${ct2_dir} --critic_model_path ${critic_model_path} --n 32 --output game24_bon32.json
+```
+
 
 **CTranslate2 cuda 12 issue**:
 
