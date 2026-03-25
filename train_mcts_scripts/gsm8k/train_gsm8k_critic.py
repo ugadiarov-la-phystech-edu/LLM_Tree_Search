@@ -11,6 +11,8 @@ def parse_args():
     parser.add_argument('--wandb_project_name', type=str, required=False)
     parser.add_argument('--wandb_entity_name', type=str, required=False)
     parser.add_argument('--wandb_group_name', type=str, required=False)
+    parser.add_argument('--micro_batch_size', type=int, default=4)
+    parser.add_argument('--gradient_accumulation_steps', type=int, default=4)
 
     return parser.parse_args()
 
@@ -39,8 +41,8 @@ if __name__ == '__main__':
             "gamma": 1.0,
             "gae_lambda": 0.95,
             "seq_length": 1024,
-            "micro_batch_size": 4,
-            "gradient_accumulation_steps": 4,
+            "micro_batch_size": args.micro_batch_size,
+            "gradient_accumulation_steps": args.gradient_accumulation_steps,
             "value_loss_coef": 1.0,
             "eval_interval": 1,
             "checkpoint_interval": 1,

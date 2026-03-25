@@ -11,6 +11,8 @@ def parse_args():
     parser.add_argument('--wandb_project_name', type=str, required=False)
     parser.add_argument('--wandb_entity_name', type=str, required=False)
     parser.add_argument('--wandb_group_name', type=str, required=False)
+    parser.add_argument('--micro_batch_size', type=int, default=4)
+    parser.add_argument('--gradient_accumulation_steps', type=int, default=4)
 
     return parser.parse_args()
 
@@ -35,8 +37,8 @@ if __name__ == '__main__':
             "env_name": "game24",
             "epochs": 3,
             "train_epoch": 1,
-            "sft_micro_batch_size": 4,
-            "gradient_accumulation_steps": 4,
+            "sft_micro_batch_size": args.micro_batch_size,
+            "gradient_accumulation_steps": args.gradient_accumulation_steps,
             "seq_length": 1024,
             "eval_interval": 1,
             "sft_loss_coef": 1.0,
