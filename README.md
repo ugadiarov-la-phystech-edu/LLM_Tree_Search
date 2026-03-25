@@ -6,7 +6,7 @@
 
 ![ReSCALE Overview](assests/scheme.png)
 
-![ReSCALE results](assests/GSM8K.png)
+<img src="assests/GSM8K.png" width="50%" alt="Alt text" style="display: block; margin: 0 auto;">
 
 
 **GSM8k**
@@ -36,7 +36,7 @@
 
 This repository is based on: https://github.com/waterhorse1/LLM_Tree_Search.git
 
-Installation:
+## Installation:
 1. Install torch==2.2.0
 2. `pip install -r /path_to_repo/requirements.txt`
 3. `cd /path_to_repo && pip install -e .`
