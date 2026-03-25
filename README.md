@@ -133,6 +133,8 @@ bash batch_run_mcts.sh --save_path ${save_path} --seed ${seed} --n_gpus ${n_gpus
 For the Game24 dataset, repeat steps 1.1–1.5 using the scripts in the `/path_to_repo/train_mcts_scripts/game24` folder with the `--env_name game24` flag.
 
 # 3 Best-of-N
+Generate candidates with the SFT Llama2-7B and score them using the critic model.
+
 ```
 cd /path_to_repo
 export CUDA_VISIBLE_DEVICES=0
